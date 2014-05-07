@@ -5,6 +5,8 @@
 #include <sys/ioctl.h>
 #include <string.h>
 #include "debug_msg.h"
+
+extern char pattern[200];
 /**
  * access_mgmt_area()-- this function try to get controll of management area.
  * @mgmt_area: value returned by mmap on that particular management area.
@@ -181,6 +183,7 @@ int send_to_remote_buf_by_cpu(unsigned int *mgmt_area,
 	 * sending known pattern "BBBBBBB" of 510 bytes.
 	 */
 	memset(buf + off_st, 67, 510);
+	memcpy(buf + off_st + 30, pattern, strlen(pattern));
 
 	/*
 	 * update write index of buffer
@@ -216,6 +219,7 @@ int put_data_in_local_buffer(unsigned int *mgmt_area,
 	* set known pattern in buffer
 	*/
 	memset((buf + off_st), 76, 510);
+	memcpy(buf + off_st + 30, pattern, strlen(pattern));
 	/*
 	* update write index of buffer
 	*/
@@ -430,6 +434,8 @@ int send_to_remote_buf_by_dma(unsigned int *mgmt_area,
 	*/
 
 	memset(info.user_buf, 68, 510);
+	memcpy(info.user_buf + 30, pattern, strlen(pattern));
+
 	info.dest = (unsigned int *)(outb_address + off_st);
 	info.src = 0;
 	ret = ioctl(fd_dma, TI81XX_EDMA_WRITE, &info);

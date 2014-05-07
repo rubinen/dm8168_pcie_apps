@@ -92,6 +92,8 @@ unsigned int  bar0_addr;
 FILE *fp1, *fp2;
 #endif
 
+char pattern[200] = {"## Root complex marker ## "};
+
 #if defined(INTEGRITY) || defined(THPT)
 
 unsigned long long byte_recv;
@@ -409,12 +411,26 @@ int main(int argc, char **argv)
 	printf("notify EP about interrupt capability 1--int 2--polling\n");
 	scanf("%u", &int_cap);
 #else
+    #if defined(INTERRUPT_CAPABILITY)
+	printf("***Forcing interrupt capability.\n");
+	int_cap = 1;
+    #else
 	printf("***Forcing polling (interrupt communication disabled, "
 			"RC will not generate interrupt)\n");
 	int_cap = 2;
+    #endif
 #endif
 
 	test[5] = int_cap;
+
+#if !defined(INTEGRITY) && !defined(THPT)
+	if (argc > 1) {
+		int free_size = sizeof(pattern) - strlen(pattern);
+		strncpy (pattern + strlen(pattern), argv[1], free_size);
+		printf("check for following pattern on EP side: \n '%s' \n", pattern);
+	}
+#endif
+
 	/* As for now app is demonstrating interrupt notification from peer*/
 	debug_print("management area before "
 				"int cap recevied from remote peer\n\n\n");

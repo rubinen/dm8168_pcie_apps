@@ -115,6 +115,7 @@ struct dma_cnt_conf	dma_cnt;
 struct dma_buf_info	dma_b;
 int integrity_test;
 
+char pattern[200] = {"## Endpoint marker ## "};
 
 void send_data_by_cpu()
 {
@@ -950,8 +951,16 @@ int main(int argc, char **argv)
 	printf("***Advertised interrupt capability, EP will generate MSI.\n");
 	intr_cap = 1;
 
+
 	int_cap[5] = intr_cap;
 
+#if !defined(INTEGRITY) && !defined(THPT)
+	if (argc > 1) {
+		int free_size = sizeof(pattern) - strlen(pattern);
+		strncpy (pattern + strlen(pattern), argv[1], free_size);
+		printf("check for following pattern on RC side: \n '%s' \n", pattern);
+	}
+#endif
 
 #if defined(INTEGRITY) || defined(THPT)
 	/*  ////////
