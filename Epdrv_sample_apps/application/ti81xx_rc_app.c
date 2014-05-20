@@ -280,6 +280,7 @@ int main(int argc, char **argv)
 	#if defined(INTEGRITY) || defined(THPT)
 	byte_recv = 0;
 	#endif
+	int bar_chosen = -1;
 
 	#ifdef INTEGRITY
 	fp1 = fopen("rc_tx.cap", "w+");
@@ -338,12 +339,19 @@ int main(int argc, char **argv)
 	* may be dynamicaly entered in a multi EP setup
 	*/
 	for (temp = start; temp != NULL; temp = temp->next) {
-		if (temp->res_value[0][0] == 2) {
-			debug_print("bar 2 address of EP2 is %x size is %x\n",
-						temp->res_value[3][0],
-							temp->res_value[3][1]);
+		debug_print("temp->res_value[0][0]:%d\n", temp->res_value[0][0]);
+
+		if ((temp->res_value[0][0] > 0) && (temp->res_value[0][0] <= 6)) {
+			bar_chosen = temp->res_value[0][0];
+			printf("BAR%d used\n", bar_chosen);
+		}
+
+		if (bar_chosen != -1) {
+			printf("BAR%d address of EP is %x size is %x\n", bar_chosen,
+						temp->res_value[bar_chosen + 1][0],
+							temp->res_value[bar_chosen + 1][1]);
 			bar0_addr = temp->res_value[1][0];
-			debug_print("bar 0 address is %x\n", bar0_addr);
+			printf("BAR0 address is %x\n", bar0_addr);
 			break;
 		}
 	}
@@ -368,9 +376,15 @@ int main(int argc, char **argv)
 	id_alloc = (unsigned int *) mapped_buffer;
 
 
-	mapped_pci = mmap(0, temp->res_value[3][1],
+	mapped_pci = mmap(0, temp->res_value[bar_chosen + 1][1],
 				PROT_READ | PROT_WRITE, MAP_SHARED,
-					fd, (off_t) temp->res_value[3][0]);
+					fd, (off_t) temp->res_value[bar_chosen + 1][0]);
+
+	printf("PCI mapping:  BAR%d size:%08x at addr:%08x mapped at %08x\n",
+				bar_chosen,
+				temp->res_value[bar_chosen + 1][1],
+				temp->res_value[bar_chosen + 1][0],
+				mapped_pci);
 
 	if ((void *)-1 == (void *) mapped_pci) {
 		err_print("MMAP EP's BAR  memory fail\n");

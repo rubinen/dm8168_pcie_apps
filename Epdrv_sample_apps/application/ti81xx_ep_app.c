@@ -667,11 +667,18 @@ int main(int argc, char **argv)
 	#endif
 	status = 0;
 	counter = 0;
+	int bar_chosen = 2;
 
 	if (sem_init(&mutex, 0, 1) < 0) {
 		perror("semaphore initilization failed");
 		exit(0);
 	}
+
+	if (argc > 1)
+	{
+		bar_chosen = atoi(argv[1]);
+	}
+	printf("BAR%d used\n", bar_chosen);
 
 #ifdef INTEGRITY
 	fp1 = fopen("ep_tx.cap", "w+");
@@ -778,8 +785,8 @@ int main(int argc, char **argv)
 	}
 	/******* by default uid 2 is assigned to This EP ****/
 
-	test[0] = 2;
-	test[1] = 2;
+	test[0] = bar_chosen;
+	test[1] = bar_chosen;
 	fd_dma = open("/dev/ti81xx_edma_ep", O_RDWR);
 	if (fd_dma == -1) {
 		err_print("EP DMA device file open fail\n");
@@ -814,14 +821,15 @@ int main(int argc, char **argv)
 
 	/*inbound setup to be done for inbound to be enabled. by default BAR 2*/
 
-	pcie_regs.offset = LOCAL_CONFIG_OFFSET + BAR2;
+	pcie_regs.offset = LOCAL_CONFIG_OFFSET + (BAR0 + 0x4 * bar_chosen);
+	printf("PCIE_Regs  offset: %08x (BAR%d offs: %08x) \n", pcie_regs.offset, (BAR0 + 0x4 * bar_chosen));
 	pcie_regs.mode = GET_REGS;
 	if (ioctl(fd, TI81XX_ACCESS_REGS, &pcie_regs) < 0) {
 		err_print("GET_REGS mode ioctl failed\n");
 		goto ERROR;
 	}
 
-	in.BAR_num = 2;
+	in.BAR_num = bar_chosen;
 	/*by default BAR2 will be used to get
 	* inbound access by RC.
 	*/
@@ -955,9 +963,9 @@ int main(int argc, char **argv)
 	int_cap[5] = intr_cap;
 
 #if !defined(INTEGRITY) && !defined(THPT)
-	if (argc > 1) {
+	if (argc > 2) {
 		int free_size = sizeof(pattern) - strlen(pattern);
-		strncpy (pattern + strlen(pattern), argv[1], free_size);
+		strncpy (pattern + strlen(pattern), argv[2], free_size);
 		printf("check for following pattern on RC side: \n '%s' \n", pattern);
 	}
 #endif
