@@ -12,7 +12,18 @@
       printf(APP_NAME": " fmt , ## arg); \
   } while (0)
 
+
+typedef struct pcie_srv_proc_s {
+  int             handler;    // handle of the file to write
+  int             mode;       //
+  char           *filename;   // filename
+  pid_t           pid;        // pid of the child process
+  pthread_mutex_t mutex;      // mutex
+} pcie_cmd_write_t;
+
+
 static int debug = 0;
+
 
 
 int main(int argc, char *argv[])
@@ -21,34 +32,31 @@ int main(int argc, char *argv[])
   dbg(0, debug, "welcome!\n");
 
   rv = pcie_server_init();
-  if (rv == 0)
+  if (rv != 0)
   {
-#if 0
-    pthread_t newThread;
-    pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    dbg(0, debug, "pcie_server_init returned error rv:%d!\n", rv);
+    exit(1);
+  }
 
-    while (1)
-    {
-      /* wait for*/
-      int newsockfd = accept(sockfd, (struct sockaddr*)&cli_addr, &cilen);
-      noOfChilds++;
-
-      struct fileWriteArgs args;
-      args.sockfd = newsockfd;
-      args.childNumber = noOfChilds;
-
-      if(newsockfd < 0)
-          errorOnAccept();
-
-      pthread_create(&newThread, &attr, &fileWrite, &args);
+  while (1)
+  {
+    pcie_cmd_t cmd;
+    rv = pcie_srv_cmd_wait();
+    if (rv == -1) {
+        dbg(0, debug, "pcie_server_wait returned error rv:%d!\n", rv);
+        continue;
     }
-#endif
+    pcie_server_respond();
+
+    inet_ntop(their_addr.ss_family,
+        get_in_addr((struct sockaddr *)&their_addr),
+        s, sizeof s);
+    printf("server: got connection from %s\n", s);
+
+
   }
   else
   {
-    dbg(0, debug, "pcie_server_init returned error rv:%d!\n", rv);
   }
 
 

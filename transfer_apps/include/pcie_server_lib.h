@@ -3,31 +3,32 @@
 
 #include <pcie_common.h>
 
-int pcie_server_init(void);
+int pcie_srv_init(void);
 /*****************************************\
-  Wait for incoming requests:
+  Wait for command:
   ie.
   - open file ()
   - close file
 \*****************************************/
-int pcie_server_listen(void);
+int pcie_srv_cmd_wait(pcie_cmd_t *cmd);
 
 /*****************************************\
-  Respond to incoming requests:
+  Send response to command:
   ie.
   - open file status
   - close file status
+  - number of bytes written
 \*****************************************/
-int pcie_server_respond(void);
+int pcie_srv_cmd_response(pcie_response_t *rsp);
 
 /*****************************************\
   Receive data from client
 \*****************************************/
-int pcie_server_receive(void *buf, int size);
+int pcie_server_receive(int handler, void *buf, int size);
 
 /*****************************************\
   Send data to client
 \*****************************************/
-int pcie_server_send(void *buf, int size);
+int pcie_server_send(int handler, void *buf, int size);
 
 #endif /* __PCIE_SERVER_LIB__ */
