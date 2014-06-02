@@ -822,7 +822,7 @@ int main(int argc, char **argv)
 	/*inbound setup to be done for inbound to be enabled. by default BAR 2*/
 
 	pcie_regs.offset = LOCAL_CONFIG_OFFSET + (BAR0 + 0x4 * bar_chosen);
-	printf("PCIE_Regs  offset: %08x (BAR%d offs: %08x) \n", pcie_regs.offset, (BAR0 + 0x4 * bar_chosen));
+	printf("PCIE_Regs  offset: %08x (BAR%d offs: %08x) \n", pcie_regs.offset, bar_chosen, (BAR0 + 0x4 * bar_chosen));
 	pcie_regs.mode = GET_REGS;
 	if (ioctl(fd, TI81XX_ACCESS_REGS, &pcie_regs) < 0) {
 		err_print("GET_REGS mode ioctl failed\n");
