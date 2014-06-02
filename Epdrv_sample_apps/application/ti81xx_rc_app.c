@@ -419,11 +419,11 @@ int main(int argc, char **argv)
 	* field 2  for writing and buffer 1 for reading
 	*/
 	dedicate_buffer((unsigned int *)mapped_buffer,
-						2, mgmt_area.no_blk, 0, RD);
+						bar_chosen, mgmt_area.no_blk, 0, RD);
 
 	#ifdef THPT
 	dedicate_buffer((unsigned int *)mapped_buffer,
-						2, mgmt_area.no_blk, 1, WR);
+						bar_chosen, mgmt_area.no_blk, 1, WR);
 	#endif
 
 	#endif
@@ -525,7 +525,7 @@ int main(int argc, char **argv)
 	rd_buf.user_buf = NULL;
 
 	if (find_dedicated_buffer((unsigned int *)mapped_buffer,
-						2, &rd_buf.bufd, WR) < 0) {
+						bar_chosen, &rd_buf.bufd, WR) < 0) {
 		err_print("no dedicated buffer on local peer to be RX "
 							"by remote peer\n");
 		goto FREELIST;
