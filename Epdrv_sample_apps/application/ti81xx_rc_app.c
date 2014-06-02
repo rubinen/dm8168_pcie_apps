@@ -281,6 +281,12 @@ int main(int argc, char **argv)
 	byte_recv = 0;
 	#endif
 	int bar_chosen = -1;
+	int ep_no = 0;
+
+	if (argc > 1) {
+		ep_no = atoi(argv[1]);
+	}
+	printf("EP number: %d\n", ep_no);
 
 	#ifdef INTEGRITY
 	fp1 = fopen("rc_tx.cap", "w+");
@@ -338,6 +344,7 @@ int main(int argc, char **argv)
 	/* assumed that remote peer id is 2,
 	* may be dynamicaly entered in a multi EP setup
 	*/
+	int ep_found = 0;
 	for (temp = start; temp != NULL; temp = temp->next) {
 		debug_print("temp->res_value[0][0]:%d\n", temp->res_value[0][0]);
 
@@ -352,7 +359,11 @@ int main(int argc, char **argv)
 							temp->res_value[bar_chosen + 1][1]);
 			bar0_addr = temp->res_value[1][0];
 			printf("BAR0 address is %x\n", bar0_addr);
-			break;
+			ep_found++;
+			if (ep_found >= ep_no)
+			{
+				break;
+			}
 		}
 	}
 
@@ -438,9 +449,10 @@ int main(int argc, char **argv)
 	test[5] = int_cap;
 
 #if !defined(INTEGRITY) && !defined(THPT)
-	if (argc > 1) {
+
+	if (argc > 2) {
 		int free_size = sizeof(pattern) - strlen(pattern);
-		strncpy (pattern + strlen(pattern), argv[1], free_size);
+		strncpy (pattern + strlen(pattern), argv[2], free_size);
 		printf("check for following pattern on EP side: \n '%s' \n", pattern);
 	}
 #endif
