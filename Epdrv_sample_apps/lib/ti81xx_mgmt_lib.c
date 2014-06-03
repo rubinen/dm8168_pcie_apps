@@ -133,6 +133,10 @@ int ti81xx_prepare_mgmt_info(struct ti81xx_mgmt_area *mgmt_area, unsigned int si
 	mgmt_area->size += 2 * FREE_Q_SIZE(mgmt_area->no_blk);
 	mgmt_area->offset = GENERAL_INFO_SIZE +
 				2 * FREE_Q_SIZE(mgmt_area->no_blk);
+
+	debug_print("no_blk:%d size:%08x offset:%08x size_buffer:%08x\n",
+		   mgmt_area->no_blk, mgmt_area->size, mgmt_area->offset, size_buffer);
+
 	mgmt_area->int_cap = 0; /*by default nothing.( INT, POLL are possible)*/
 
 	debug_print("initializing free/used queues\n");
@@ -537,6 +541,8 @@ int ti81xx_poll_for_data(struct ti81xx_ptrs *ptr,
 	for (i = 0; i < mgmt_area->no_blk; i++) {
 		rd_idx = (unsigned int *)(mapped_buffer + offset);
 		wr_idx = rd_idx + 1;
+
+		debug_print("mapped_buffer:%08x offset:%08x rd_idx:%p wr_idx:%p\n", mapped_buffer, offset, rd_idx, wr_idx);
 
 		#ifndef THPT
 		debug_print("wr_idx  %u  wr_idx_ptr 0x%x rd_IDX %u rd_idx_ptr "

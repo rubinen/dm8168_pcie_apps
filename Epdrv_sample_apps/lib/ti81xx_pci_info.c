@@ -121,6 +121,8 @@ int dump_info_on_ep(struct pci_sys_info *start, unsigned int *mgmt_area,
 	void *index;
 	unsigned int size_mgmt = 0;
 
+	debug_print("mgmt_area:%08x\n", mgmt_area);
+
 ACCESS_MGMT:
 	if (access_mgmt_area(mgmt_area, 1) == 0) {
 		/*1 will be unique id of RC always.*/
@@ -300,6 +302,7 @@ int propagate_system_info(struct pci_sys_info *start, int fd,
 
 		mgmt_area = mmap(0, bar2_size, PROT_READ|PROT_WRITE,
 					MAP_SHARED, fd, (off_t)bar2_addr);
+		debug_print("bar2_addr:%08x (%08x) mapped:%08x\n", bar2_addr, bar2_size, mgmt_area);
 
 		if ((void *)-1 == (void *) mgmt_area) {
 			debug_print("mmap bar2 of EP having ID %u "
@@ -318,6 +321,7 @@ int propagate_system_info(struct pci_sys_info *start, int fd,
 
 		mgmt_area = mmap(0, bar2_size, PROT_READ | PROT_WRITE,
 					MAP_SHARED, fd, (off_t) bar2_addr);
+		debug_print("bar2_addr:%08x (%08x) mapped:%08x\n", bar2_addr, bar2_size, mgmt_area);
 		if ((void *)-1 == (void *) mgmt_area) {
 			debug_print("mmap bar2 of EP having Id %u "
 					"failed\n", temp->res_value[0][0]);
