@@ -55,7 +55,7 @@
 
 #define INT			1
 #define POLL			2
-#define MAX_BLOCKS		3
+#define MAX_BLOCKS		6
 #define GENERAL_INFO_SIZE	(sizeof(unsigned int) * 6)
 #define FREE_Q_SIZE(no_blk)	(sizeof(unsigned int) * no_blk)
 #define USED_Q_SIZE(no_blk)	(sizeof(unsigned int) * no_blk)
