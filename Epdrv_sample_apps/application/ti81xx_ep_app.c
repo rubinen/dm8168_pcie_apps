@@ -116,6 +116,8 @@ struct dma_buf_info	dma_b;
 int integrity_test;
 
 char pattern[200] = {"## Endpoint marker ## "};
+int debug_test = 0;
+int bar_chosen = 2;
 
 void send_data_by_cpu()
 {
@@ -597,6 +599,57 @@ int outbound_regn_mgmt_test()
 	return 0;
 }
 
+static int parse_opts(int argc, char **argv)
+{
+	int index;
+	int c;
+
+	opterr = 0;
+
+	while ((c = getopt (argc, argv, "vb:s:")) != -1)
+	{
+		switch (c)
+		{
+			case 'v':
+				debug_test = 1;
+				break;
+			case 'b':
+				bar_chosen = atoi(optarg);
+				break;
+			case 's':
+			{
+				int free_size = sizeof(pattern) - strlen(pattern);
+				strncpy (pattern + strlen(pattern), optarg, free_size);
+				break;
+			}
+			case '?':
+				if (optopt == 'c')
+				{
+					fprintf (stderr, "Option -%c requires an argument.\n", optopt);
+				}
+				else if (isprint (optopt))
+				{
+					fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+				}
+				else
+				{
+					fprintf (stderr,
+					"Unknown option character `\\x%x'.\n",
+					optopt);
+				}
+				return 1;
+			default:
+				abort ();
+		}
+	}
+
+	for (index = optind; index < argc; index++)
+	{
+		printf ("Non-option argument %s\n", argv[index]);
+	}
+	return 0;
+}
+
 
 int main(int argc, char **argv)
 {
@@ -667,18 +720,19 @@ int main(int argc, char **argv)
 	#endif
 	status = 0;
 	counter = 0;
-	int bar_chosen = 2;
 
 	if (sem_init(&mutex, 0, 1) < 0) {
 		perror("semaphore initilization failed");
 		exit(0);
 	}
 
-	if (argc > 1)
-	{
-		bar_chosen = atoi(argv[1]);
-	}
+	parse_opts(argc, argv);
+
+	printf("debugs: %d\n", debug_test);
 	printf("BAR%d used\n", bar_chosen);
+#if !defined(INTEGRITY) && !defined(THPT)
+	printf("check for following pattern on RC side: \n '%s' \n", pattern);
+#endif
 
 #ifdef INTEGRITY
 	fp1 = fopen("ep_tx.cap", "w+");
@@ -753,6 +807,8 @@ int main(int argc, char **argv)
 	mapped_buffer = (char *)mmap(0, SIZE_AREA, PROT_READ|PROT_WRITE,
 							MAP_SHARED, fd ,
 					(off_t) start_addr.base);
+	debug_print("start_addr.base:%08x (%08x) mapped_buffer:%08x\n", start_addr.base, SIZE_AREA, mapped_buffer);
+
 	if ((void *)-1 == (void *) mapped_buffer) {
 		err_print("mapping dedicated memory fail\n");
 #ifdef INTEGRITY
@@ -880,6 +936,8 @@ int main(int argc, char **argv)
 		goto ERROR;
 	}
 
+	debug_print("mgmt_area.size:%08x\n", mgmt_area.size);
+
 	rm_info = (u32 *)(mapped_buffer + mgmt_area.size);
 
 	ti81xx_set_mgmt_area(&mgmt_area, (unsigned int *)mapped_buffer);
@@ -903,7 +961,7 @@ int main(int argc, char **argv)
 
 
 	debug_print("total no of ep on system is %u\n", rm_info[0]);
-	debug_print("Mgmt area's start address on RC is %u\n", rm_info[1]);
+	debug_print("Mgmt area's start address on RC is %08x\n", rm_info[1]);
 
 
 
@@ -962,13 +1020,6 @@ int main(int argc, char **argv)
 
 	int_cap[5] = intr_cap;
 
-#if !defined(INTEGRITY) && !defined(THPT)
-	if (argc > 2) {
-		int free_size = sizeof(pattern) - strlen(pattern);
-		strncpy (pattern + strlen(pattern), argv[2], free_size);
-		printf("check for following pattern on RC side: \n '%s' \n", pattern);
-	}
-#endif
 
 #if defined(INTEGRITY) || defined(THPT)
 	/*  ////////

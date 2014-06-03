@@ -93,6 +93,9 @@ FILE *fp1, *fp2;
 #endif
 
 char pattern[200] = {"## Root complex marker ## "};
+int debug_test = 0;
+int ep_no = 0;
+
 
 #if defined(INTEGRITY) || defined(THPT)
 
@@ -242,6 +245,61 @@ void *thpt_buf_read_data(void *arg)
 
 #endif
 
+static int parse_opts(int argc, char **argv)
+{
+	int aflag = 0;
+	int bflag = 0;
+	char *cvalue = NULL;
+	int index;
+	int c;
+
+	opterr = 0;
+
+	while ((c = getopt (argc, argv, "ve:s:")) != -1)
+	{
+		switch (c)
+		{
+			case 'v':
+				debug_test = 1;
+				break;
+			case 'e':
+				ep_no = atoi(optarg);
+				break;
+			case 's':
+			{
+				int free_size = sizeof(pattern) - strlen(pattern);
+				strncpy (pattern + strlen(pattern), argv[2], free_size);
+				cvalue = optarg;
+				break;
+			}
+			case '?':
+				if (optopt == 'c')
+				{
+					fprintf (stderr, "Option -%c requires an argument.\n", optopt);
+				}
+				else if (isprint (optopt))
+				{
+					fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+				}
+				else
+				{
+					fprintf (stderr,
+					"Unknown option character `\\x%x'.\n",
+					optopt);
+				}
+				return 1;
+			default:
+				abort ();
+		}
+	}
+
+	for (index = optind; index < argc; index++)
+	{
+		printf ("Non-option argument %s\n", argv[index]);
+	}
+	return 0;
+}
+
 
 int main(int argc, char **argv)
 {
@@ -281,12 +339,14 @@ int main(int argc, char **argv)
 	byte_recv = 0;
 	#endif
 	int bar_chosen = -1;
-	int ep_no = 0;
 
-	if (argc > 1) {
-		ep_no = atoi(argv[1]);
-	}
+	parse_opts(argc, argv);
+
+	printf("debugs: %d\n", debug_test);
 	printf("EP number: %d\n", ep_no);
+#if !defined(INTEGRITY) && !defined(THPT)
+	printf("check for following pattern on EP side: \n '%s' \n", pattern);
+#endif
 
 	#ifdef INTEGRITY
 	fp1 = fopen("rc_tx.cap", "w+");
@@ -376,9 +436,10 @@ int main(int argc, char **argv)
 	* working on both NETRA and AMD
 	*/
 
-	mapped_buffer = mmap(0, 4 * 1024 * 1024,
+	mapped_buffer = mmap(0, 8 * 1024 * 1024,
 				PROT_READ | PROT_WRITE, MAP_SHARED,
 					fd, (off_t)start_addr.start_addr_phy);
+	debug_print("mapped_buffer:%08x\n", mapped_buffer);
 
 	if ((void *)-1 == (void *) mapped_buffer) {
 		err_print("MMAP of dedicated memory fail\n");
@@ -447,15 +508,6 @@ int main(int argc, char **argv)
 #endif
 
 	test[5] = int_cap;
-
-#if !defined(INTEGRITY) && !defined(THPT)
-
-	if (argc > 2) {
-		int free_size = sizeof(pattern) - strlen(pattern);
-		strncpy (pattern + strlen(pattern), argv[2], free_size);
-		printf("check for following pattern on EP side: \n '%s' \n", pattern);
-	}
-#endif
 
 	/* As for now app is demonstrating interrupt notification from peer*/
 	debug_print("management area before "
