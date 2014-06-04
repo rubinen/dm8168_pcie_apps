@@ -64,38 +64,34 @@
 #define INPROCESS	1
 #define CPU				2
 
+
+#define EP_COUNT 2
+
+
 /* for test case summary */
 struct test_case {
 	char test_case_id[10];
 	char result[10];
 };
 
-struct test_case test_summary[19];
+// struct test_case test_summary[19];
 
 
 /****** globals*********/
 
-char			*mapped_buffer;
-char			*mapped_pci;
+// char			*mapped_buffer;
+// char			*mapped_pci;
 struct ti81xx_mgmt_area	mgmt_area;
-struct ti81xx_ptrs	ptr;
+int mgmt_area_set = 0;
+// struct ti81xx_ptrs	ptr;
 int			fd;
 struct pci_sys_info	*start;
 struct pollfd		fds[1];
-unsigned int		int_cap;
+// unsigned int		int_cap;
 int total_fld;
-unsigned int *id_alloc;
-int test_integrity;
-unsigned int  bar0_addr;
-
-#ifdef INTEGRITY
-FILE *fp1, *fp2;
-#endif
-
-char pattern[200] = {"## Root complex marker ## "};
-int debug_test = 0;
-int ep_no = 0;
-
+// unsigned int *id_alloc;
+// int test_integrity;
+// unsigned int  bar0_addr;
 
 #if defined(INTEGRITY) || defined(THPT)
 
@@ -108,89 +104,134 @@ struct fix_trans {
 
 #endif
 
-void send_data_by_cpu()
+typedef struct ep_process_s {
+	int 										 id;
+	int 										 idx;
+	struct pci_sys_info	 		*sys_info;
+	struct ti81xx_start_addr_area start_addr;
+	unsigned int 						 bar0_addr;
+	char										*mapped_buffer;
+	char										*mapped_pci;
+
+	struct ti81xx_mgmt_area	*mgmt_area;
+	struct ti81xx_ptrs			 ptr;
+	unsigned int						 int_cap;
+	unsigned int 						*id_alloc;
+	unsigned int 						 size_buf;
+	int 										 test_integrity;
+	#ifdef THPT
+	struct fix_trans rd_buf;
+	#endif
+	#ifdef INTEGRITY
+	struct fix_trans wr_buf;
+	#endif
+} ep_process_t;
+
+static ep_process_t ep_table[EP_COUNT] = {0, };
+
+#ifdef INTEGRITY
+FILE *fp1, *fp2;
+#endif
+
+char pattern[200] = {"## Root complex marker ## "};
+int debug_test = 0;
+int ep_no = 0;
+
+
+
+void *push_data_in_local(void *);
+void *send_data(void *);
+void *wait_for_data(void *arg);
+void *wait_for_int(void *arg);
+
+
+void send_data_by_cpu(void *arg)
 {
+	ep_process_t *ep = (ep_process_t*) arg;
 	int ret;
 	unsigned int offset;
 
 ACCESS_MGMT:
-	while ((ret = access_mgmt_area((u32 *) mapped_pci,
-						mgmt_area.my_unique_id)) < 0) {
+	while ((ret = access_mgmt_area((u32 *) ep->mapped_pci,
+						ep->mgmt_area->my_unique_id)) < 0) {
 		debug_print("mgmt area access not granted\n");
 		sleep(3);
 		continue;
 	}
 
-	while ((ret = get_free_buffer((u32 *)mapped_pci)) < 0) {
+	while ((ret = get_free_buffer((u32 *)ep->mapped_pci)) < 0) {
 		debug_print("buffer not available\n");
-		release_mgmt_area((u32 *)mapped_pci);
+		release_mgmt_area((u32 *)ep->mapped_pci);
 		sleep(2);
 		goto ACCESS_MGMT;
 	}
 
-	offset = offset_to_buffer((u32 *)mapped_pci, ret);
-	send_to_remote_buf_by_cpu((u32 *)mapped_pci, offset, ret);
+	offset = offset_to_buffer((u32 *)ep->mapped_pci, ret);
+	send_to_remote_buf_by_cpu((u32 *)ep->mapped_pci, offset, ret);
 	debug_print("send by cpu success full\n");
-	release_mgmt_area((u32 *)mapped_pci);
+	release_mgmt_area((u32 *)ep->mapped_pci);
 }
 
 
 
-void process_local_rmt_bufs()
+void process_local_rmt_bufs(ep_process_t *ep)
 {
+	// ep_process_t *ep = (ep_process_t*) arg;
 	int ret;
 	/*unsigned int offset;*/
-	while ((ret = access_mgmt_area((u32 *)mapped_pci,
-						mgmt_area.my_unique_id)) < 0) {
+	while ((ret = access_mgmt_area((u32 *)ep->mapped_pci,
+						ep->mgmt_area->my_unique_id)) < 0) {
 		debug_print("access to mgmt area not granted\n");
 		sleep(4);
 		continue;
 	}
-	process_remote_buffer_for_data((u32 *)mapped_pci, CPU, 0);
-	release_mgmt_area((u32 *)mapped_pci);
+	process_remote_buffer_for_data((u32 *)ep->mapped_pci, CPU, 0);
+	release_mgmt_area((u32 *)ep->mapped_pci);
 
-	while ((ret = access_mgmt_area((u32 *)mapped_buffer,
-						mgmt_area.my_unique_id)) < 0) {
+	while ((ret = access_mgmt_area((u32 *)ep->mapped_buffer,
+						ep->mgmt_area->my_unique_id)) < 0) {
 		debug_print("access to mgmt_area not granted\n");
 		sleep(4);
 		continue;
 	}
 
-	ti81xx_poll_for_data(&ptr, &mgmt_area, mapped_buffer, NULL, NULL);
-	release_mgmt_area((u32 *)mapped_buffer);
+	ti81xx_poll_for_data(&ep->ptr, ep->mgmt_area, ep->mapped_buffer, NULL, NULL);
+	release_mgmt_area((u32 *)ep->mapped_buffer);
 
 }
 
 
-void push_data()
+void push_data(ep_process_t *ep)
 {
+	// ep_process_t *ep = (ep_process_t*) arg;
 	int ret;
 	unsigned int offset;
 
 ACCESS_MGMT:
-	while ((ret = access_mgmt_area((u32 *)mapped_buffer,
-						mgmt_area.my_unique_id)) < 0) {
+	while ((ret = access_mgmt_area((u32 *)ep->mapped_buffer,
+						ep->mgmt_area->my_unique_id)) < 0) {
 		debug_print("access to mgmt_area not granted\n");
 		sleep(2);
 		continue;
 	}
-	ret = get_free_buffer((u32 *)mapped_buffer);
+	ret = get_free_buffer((u32 *)ep->mapped_buffer);
 	if (ret < 0) {
 		debug_print("buffer not available\n");
-		release_mgmt_area((u32 *)mapped_buffer);
+		release_mgmt_area((u32 *)ep->mapped_buffer);
 		sleep(2);
 		goto ACCESS_MGMT;
 	}
-	offset = offset_to_buffer((u32 *)mapped_buffer, ret);
-	put_data_in_local_buffer((u32 *)mapped_buffer, offset, ret);
-	release_mgmt_area((u32 *)mapped_buffer);
+	offset = offset_to_buffer((u32 *)ep->mapped_buffer, ret);
+	put_data_in_local_buffer((u32 *)ep->mapped_buffer, offset, ret);
+	release_mgmt_area((u32 *)ep->mapped_buffer);
 
 }
 
 #ifdef INTEGRITY
 void *send_to_dedicated_buf(void *arg)
 {
-	struct fix_trans *tx = (struct fix_trans *) arg;
+	ep_process_t *ep = (ep_process_t*) arg;
+	struct fix_trans *tx = (struct fix_trans *) &ep->wr_buf;
 	int count;
 	unsigned int chunk_trans = (1024 * 1024) / (tx->size_buf);
 	debug_print("offset of buffer is 0x%X, total iteration to send data "
@@ -204,11 +245,11 @@ void *send_to_dedicated_buf(void *arg)
 					"zero again\n", *((tx->bufd).wr_ptr));
 			sleep(1);
 		}
-		memcpy(mapped_pci + (tx->bufd).off_st,
+		memcpy(ep->mapped_pci + (tx->bufd).off_st,
 						tx->user_buf, tx->size_buf);
 		*((tx->bufd).wr_ptr) = tx->size_buf;
-		if (int_cap == 1) /* send interrupt if have int capability */
-			ioctl(fd, TI81XX_RC_SEND_MSI, bar0_addr);
+		if (ep->int_cap == 1) /* send interrupt if have int capability */
+			ioctl(fd, TI81XX_RC_SEND_MSI, ep->bar0_addr);
 		debug_print("data sent %d times, bytes sent in "
 					"this chunk are %d\n",
 						count + 1, tx->size_buf);
@@ -220,11 +261,14 @@ void *send_to_dedicated_buf(void *arg)
 #endif
 
 
+
+
 #ifdef THPT
 
 void *thpt_buf_read_data(void *arg)
 {
-	struct fix_trans *tx = (struct fix_trans *) arg;
+	ep_process_t *ep = (ep_process_t*) arg;
+	struct fix_trans *tx = (struct fix_trans *) &ep->rd_buf;
 	int count = 0;
 	unsigned int chunk_trans = 5368709120llu / tx->size_buf;
 	/* 5 GB devided by buffer size */
@@ -235,7 +279,7 @@ void *thpt_buf_read_data(void *arg)
 		while (*((tx->bufd).wr_ptr) != 0)
 			/*poll*/;
 		*((tx->bufd).wr_ptr) = tx->size_buf;
-		ioctl(fd, TI81XX_RC_SEND_MSI, bar0_addr);
+		ioctl(fd, TI81XX_RC_SEND_MSI, ep->bar0_addr);
 		if (++count == chunk_trans)
 			break;
 	}
@@ -300,6 +344,288 @@ static int parse_opts(int argc, char **argv)
 	return 0;
 }
 
+int print_mgmt_area(char *func, int line, unsigned int *mgmt_area)
+{
+	int no_blk = 6;
+	int j = 0;
+	printf("[%s:%d] == mgmt_area:%p \n", func, line, mgmt_area);
+	printf("[%s:%d] == uid   :%d muid   :%d \n", func, line, mgmt_area[0], mgmt_area[1]);
+	printf("[%s:%d] == no_blk:%d offs   :%d \n", func, line, mgmt_area[2], mgmt_area[3]);
+	printf("[%s:%d] == size  :%d int_cap:%d \n", func, line, mgmt_area[4], mgmt_area[5]);
+
+	printf("[%s:%d] == free_Q:", func, line);
+	for (j = 0; j < no_blk; j++)
+	{
+		printf("%d ", mgmt_area[6 + j]);
+	}
+	printf("\n");
+	printf("[%s:%d] == used_Q:", func, line);
+	for (j = 0; j < no_blk; j++)
+	{
+		printf("%d ", mgmt_area[6 + no_blk + j]);
+	}
+	printf("\n");
+
+
+	for (j = 0; j < no_blk; j++)
+	{
+		// debug_print("mgmt_area blk[j] %p mgmt_blk_ptr:%p (%d)\n", mgmt_area, pntr, pntr - mgmt_area);
+		// printf("== mgmt_area:%p blk[%d] mgmt_area[status]:%p (%d) mgmt_area[choice]:%p (%d)\n",
+		//          mgmt_area,
+		//          j,
+		//          &mgmt_area[6 + 2 * no_blk + j * 5 + 3], &mgmt_area[6 + 2 * no_blk + j * 5 + 3] - mgmt_area,
+		//          &mgmt_area[6 + no_blk + j], &mgmt_area[6 + no_blk + j] - mgmt_area);
+		printf("[%s:%d] == blk[%d] status:%d  choice:%d \n",
+							func, line,
+		         j,
+		         j,
+		         mgmt_area[6 + 2 * no_blk + j * 5 + 3],
+		         mgmt_area[6 + no_blk + j]);
+	}
+}
+
+void *ep_process(void *arg)
+{
+	int  i;
+	pthread_t t1, t2, t3;
+	unsigned int *test;
+	pthread_attr_t attr_t1, attr_t2, attr_t3;
+	// struct ti81xx_ptrs	ptr;
+	ep_process_t *ep = (ep_process_t*) arg;
+	// struct pci_sys_info *temp;
+	unsigned int *id_alloc;
+	int bar_chosen = 2;
+	struct test_case test_summary[19];
+
+
+	pthread_attr_init(&attr_t1);
+	pthread_attr_init(&attr_t2);
+	pthread_attr_init(&attr_t3);
+
+	debug_print(" %s EP id:%d bar0_addr:%08x idx:%d\n", __FUNCTION__, ep->id, ep->bar0_addr, ep->idx);
+
+
+	for (i = 0; i <= 18; i++) {
+		sprintf(test_summary[i].test_case_id, "%s%03d", "DM81XX", i+1);
+		sprintf(test_summary[i].result, "%s", "NE/C");
+	}
+
+	ep->mapped_buffer = mmap(0, 8 * 1024 * 1024,
+				PROT_READ | PROT_WRITE, MAP_SHARED,
+					fd, (off_t)ep->start_addr.start_addr_phy);
+	debug_print("mapped_buffer:%08x\n", ep->mapped_buffer);
+
+	if ((void *)-1 == (void *) ep->mapped_buffer) {
+		err_print("MMAP of dedicated memory fail\n");
+		return;
+	}
+	id_alloc = (unsigned int *) ep->mapped_buffer;
+
+	ep->mapped_pci = mmap(0, ep->sys_info->res_value[bar_chosen + 1][1],
+				PROT_READ | PROT_WRITE, MAP_SHARED,
+					fd, (off_t) ep->sys_info->res_value[bar_chosen + 1][0]);
+
+	printf("PCI mapping:  BAR%d size:%08x at addr:%08x mapped at %08x\n",
+				bar_chosen,
+				ep->sys_info->res_value[bar_chosen + 1][1],
+				ep->sys_info->res_value[bar_chosen + 1][0],
+				ep->mapped_pci);
+
+	if ((void *)-1 == (void *) ep->mapped_pci) {
+		err_print("MMAP EP's BAR  memory fail\n");
+		return;
+	}
+
+	test = (unsigned int *)ep->mapped_pci;
+
+
+	ti81xx_set_mgmt_area(ep->mgmt_area, (unsigned int *)ep->mapped_buffer);
+
+	id_alloc[0] = 0;
+	id_alloc[1] = 1; /* rc unique id 1 always */
+
+	#if defined(INTEGRITY) || defined(THPT)
+	/* dedicate buffer 0 to remote ep having my uniue id
+	* field 2  for writing and buffer 1 for reading
+	*/
+	dedicate_buffer((unsigned int *)ep->mapped_buffer,
+						ep->id, ep->mgmt_area->no_blk, ep->idx*2, RD);
+
+	#ifdef THPT
+	dedicate_buffer((unsigned int *)ep->mapped_buffer,
+						ep->id, ep->mgmt_area->no_blk, ep->idx*2 + 1, WR);
+	#endif
+
+	#endif
+
+
+	debug_print("initialization of management mgmt_area complete\n");
+	ti81xx_calculate_ptr(ep->mgmt_area, ep->mapped_buffer, &ep->ptr);
+	ep->mgmt_area->my_unique_id = 1;
+
+	printf("***Forcing interrupt capability.\n");
+	ep->int_cap = 1;
+
+	test[5] = ep->int_cap;
+
+	/* As for now app is demonstrating interrupt notification from peer*/
+	debug_print("management area before "
+				"int cap recevied from remote peer\n\n\n");
+
+	debug_print("waiting for interrupt capability from remote end\n");
+	while (id_alloc[5] == 0) {
+		debug_print("waiting for remote end point "
+					"to interrupt capability\n");
+#if 0
+		for (i = 0; i < total_fld; i++) {
+			debug_print("0x%X ", id_alloc[i]);
+			if ((i + 1) % 6 == 0)
+				debug_print("\n");
+		}
+#endif
+
+		debug_print("int capability recevied from "
+					"rmt peer is 0x%X\n", id_alloc[5]);
+		sleep(1);
+	}
+	debug_print("int capability recevied from "
+					"rmt peer is 0x%X\n", id_alloc[5]);
+
+	#if defined(INTEGRITY) || defined(THPT)
+	/* here demonstrating THPT and INTEGRITY only receving interrupt
+	* mechanism polling will have same effect except it have to poll
+	* rather then wait for interrupt.
+	*/
+	if (id_alloc[5] != 1) {
+		err_print("Exiting the application since EP doesn't have "
+				"interrupt capability and THROUGHPUT/INTEGRITY "
+				"tets require it.\n");
+		return;
+	}
+
+	#ifdef INTEGRITY
+	ep->wr_buf.size_buf = ep->size_buf;
+	debug_print("size of buffer on RC is %u\n", ep->wr_buf.size_buf);
+	ep->wr_buf.user_buf = malloc(ep->size_buf);
+	if (ep->wr_buf.user_buf == NULL) {
+		printf("user buffer allocation failed\n");
+		return;
+	}
+	if (find_dedicated_buffer((unsigned int *)ep->mapped_pci,
+			ep->mgmt_area->my_unique_id, &ep->wr_buf.bufd, RD) < 0) {
+		err_print("no dedicated buffer for TX on remote peer\n");
+		return;
+	}
+
+	debug_print("offset of buffer is %x\n", ep->wr_buf.bufd.off_st);
+	#endif
+
+	#ifdef THPT
+	ep->rd_buf.size_buf = ep->size_buf;
+	ep->rd_buf.user_buf = NULL;
+
+	if (find_dedicated_buffer((unsigned int *)ep->mapped_buffer,
+						ep->id, &ep->rd_buf.bufd, WR) < 0) {
+
+		err_print("no dedicated buffer on local peer to be RX "
+							"by remote peer\n");
+		return;
+	}
+
+	/* populate source buffer to be read by remote peer */
+	memset(ep->mapped_buffer + (ep->rd_buf.bufd).off_st, 97, ep->rd_buf.size_buf);
+	#endif
+
+
+	if (id_alloc[5] == INT) {
+		#ifdef INTEGRITY
+		/* SEND TO DEDICATED BUF AND RECEIVE NOTOFICATION FROM REMOTE
+		* PEER ABOUT DATA RECEPTION
+		*/
+		pthread_create(&t1, &attr_t1, send_to_dedicated_buf, ep);
+		pthread_create(&t2, &attr_t2, wait_for_int, ep);
+		#endif
+
+		#ifdef THPT
+		debug_print("executing test case TX from EP\n");
+		pthread_create(&t2, &attr_t2, wait_for_int, ep);
+		pthread_join(t2, NULL);
+		sleep(4);
+		debug_print("executing test case RX/TX from EP\n");
+		/*pthread_create(&t3, &attr_t3, thpt_buf_read_data , &rd_buf);*/
+		pthread_create(&t2, &attr_t2, wait_for_int, ep);
+		#endif
+		goto JOIN;
+	} else
+		return;
+	#endif
+
+	if (id_alloc[5] == INT) {
+		debug_print("interrupt will be working on this end\n");
+		pthread_create(&t1, &attr_t1, send_data, ep);
+		pthread_create(&t2, &attr_t2, wait_for_int, ep);
+		pthread_create(&t3, &attr_t3, push_data_in_local, ep);
+	} else {
+		debug_print("polling will be working on this end\n");
+		pthread_create(&t1, &attr_t1, send_data, ep);
+		pthread_create(&t2, &attr_t2, wait_for_data, ep);
+		pthread_create(&t3, &attr_t3, push_data_in_local, ep);
+	}
+
+	/*never executed in demo mode */
+	pthread_join(t1, NULL);
+	pthread_join(t2, NULL);
+	pthread_join(t3, NULL);
+	/*currently all thread are running a while loop */
+	#if defined(INTEGRITY) || defined(THPT)
+JOIN:
+	#endif
+	pthread_join(t2, NULL);
+
+	#ifdef INTEGRITY
+	pthread_join(t1, NULL);
+	#endif
+	/*
+	#ifdef THPT
+	pthread_join(t3, NULL);
+	#endif*/
+
+
+
+	#ifdef INTEGRITY
+	while (id_alloc[0] != 2) {
+		debug_print("waiting for turn\n");
+			sleep(1);
+	}
+
+	sleep(3);
+	/* send 1000 interrupt to EP for stress testing */
+#if 0
+	for (i = 0; i < 1000; i++) {
+		ioctl(fd, TI81XX_RC_SEND_MSI, bar0_addrbar 0 of ep2 );
+		/*debug_print("interrupt send %u times\n",i+1);*/
+	}
+#endif
+	if (ep->test_integrity == 0) {
+		sprintf(test_summary[1].result, "%s", "Pass");
+		sprintf(test_summary[5].result, "%s", "Pass");
+		sprintf(test_summary[7].result, "%s", "Pass");
+		sprintf(test_summary[9].result, "%s", "Pass");
+		sprintf(test_summary[12].result, "%s", "Pass");
+		sprintf(test_summary[15].result, "%s", "Pass");
+	}
+
+	printf("test summary:\nNE/C : means not executed or "
+				"confirmed at this end:\n other test cases "
+				"will be covered by demo mode\n");
+	for (i = 0; i <= 18; i++)
+		printf("%s\t %s\n", test_summary[i].test_case_id,
+							test_summary[i].result);
+
+	#endif
+
+}
+
 
 int main(int argc, char **argv)
 {
@@ -311,34 +637,36 @@ int main(int argc, char **argv)
 	unsigned int size_buf = 4 * 1024;
 #endif
 	struct ti81xx_start_addr_area start_addr;
-	unsigned int *test;
-	pthread_t t1, t2, t3;
+	// unsigned int *test;
 	struct pci_sys_info *temp;
-	void *push_data_in_local(void *);
-	void *send_data(void *);
-	void *wait_for_data(void *arg);
-	void *wait_for_int(void *arg);
 
-	pthread_attr_t attr_t1, attr_t2, attr_t3;
-	pthread_attr_init(&attr_t1);
-	pthread_attr_init(&attr_t2);
-	pthread_attr_init(&attr_t3);
+	pthread_attr_t attr_ep_thread[EP_COUNT];
+	pthread_t ep_thread[EP_COUNT];
 
-	#ifdef INTEGRITY
-	struct fix_trans wr_buf;
-	#endif
+	for (i = 0; i < EP_COUNT; i++)
+	{
+		pthread_attr_init(&attr_ep_thread[i]);
+	}
+	//
+	// pthread_attr_init(&attr_t2);
+	// pthread_attr_init(&attr_t3);
 
-	#ifdef THPT
-	struct fix_trans rd_buf;
-	#endif
+	// #ifdef INTEGRITY
+	// struct fix_trans wr_buf;
+	// #endif
+
+	// #ifdef THPT
+	// struct fix_trans rd_buf;
+	// #endif
 
 	fds[0].events = POLLIN;
 	start = NULL;
-	bar0_addr = 0;
+	// bar0_addr = 0;
 	#if defined(INTEGRITY) || defined(THPT)
 	byte_recv = 0;
 	#endif
 	int bar_chosen = -1;
+	// int ep_id[EP_COUNT] = {-1, };
 
 	parse_opts(argc, argv);
 
@@ -362,10 +690,6 @@ int main(int argc, char **argv)
 	}
 
 	create_random_pattern((1024 * 1024), 4, fp1);
-	for (i = 0; i <= 18; i++) {
-		sprintf(test_summary[i].test_case_id, "%s%03d", "DM81XX", i+1);
-		sprintf(test_summary[i].result, "%s", "NE/C");
-	}
 
 	#endif
 	fd = open("/dev/ti81xx_ep_hlpr", O_RDWR);
@@ -385,6 +709,12 @@ int main(int argc, char **argv)
 		err_print("ioctl START_ADDR failed\n");
 		goto ERROR;
 	}
+
+	if (ti81xx_prepare_mgmt_info(&mgmt_area, size_buf) < 0) {
+		err_print("prepare_mgmt_info failed\n");
+		goto FREELIST;
+	}
+
 	eps = get_devices(&start);
 	if (eps < 0) {
 		err_print("fetching pci sub system info on rc fails\n");
@@ -405,20 +735,30 @@ int main(int argc, char **argv)
 	* may be dynamicaly entered in a multi EP setup
 	*/
 	int ep_found = 0;
-	for (temp = start; temp != NULL; temp = temp->next) {
-		debug_print("temp->res_value[0][0]:%d\n", temp->res_value[0][0]);
 
-		if ((temp->res_value[0][0] > 0) && (temp->res_value[0][0] <= 6)) {
-			bar_chosen = temp->res_value[0][0];
-			printf("BAR%d used\n", bar_chosen);
+	for (temp = start; temp != NULL; temp = temp->next) {
+		debug_print("temp->res_value[0][0]:%d [0][1]:%d\n", temp->res_value[0][0], temp->res_value[0][1]);
+
+		if ((temp->res_value[0][1] > 0) && (temp->res_value[0][1] <= 6)) {
+			ep_table[ep_found].id = temp->res_value[0][0];
+			bar_chosen = temp->res_value[0][1];
+			printf("BAR%d used by EP id:%d \n", bar_chosen, ep_table[ep_found].id);
 		}
 
 		if (bar_chosen != -1) {
 			printf("BAR%d address of EP is %x size is %x\n", bar_chosen,
 						temp->res_value[bar_chosen + 1][0],
 							temp->res_value[bar_chosen + 1][1]);
-			bar0_addr = temp->res_value[1][0];
-			printf("BAR0 address is %x\n", bar0_addr);
+			ep_table[ep_found].bar0_addr = temp->res_value[1][0];
+			printf("BAR0 address is %x\n", ep_table[ep_found].bar0_addr);
+
+
+			ep_table[ep_found].sys_info = temp;
+			ep_table[ep_found].mgmt_area = &mgmt_area;
+			ep_table[ep_found].size_buf = size_buf;
+			ep_table[ep_found].start_addr = start_addr;
+			ep_table[ep_found].idx = ep_found;
+
 			ep_found++;
 			if (ep_found >= ep_no)
 			{
@@ -432,88 +772,92 @@ int main(int argc, char **argv)
 		goto ERROR;
 	}
 
+	for (i = 0; i < ep_found; i++) {
+		pthread_create(&ep_thread[i], &attr_ep_thread[i], ep_process, &ep_table[i]);
+	}
+
+	for (i = 0; i < ep_found; i++) {
+		pthread_join(ep_thread[i], NULL);
+	}
+
 	/* 4 MB size kmalloc buffer in kernel for management area and buffers
 	* working on both NETRA and AMD
 	*/
 
-	mapped_buffer = mmap(0, 8 * 1024 * 1024,
-				PROT_READ | PROT_WRITE, MAP_SHARED,
-					fd, (off_t)start_addr.start_addr_phy);
-	debug_print("mapped_buffer:%08x\n", mapped_buffer);
+	// mapped_buffer = mmap(0, 8 * 1024 * 1024,
+	// 			PROT_READ | PROT_WRITE, MAP_SHARED,
+	// 				fd, (off_t)start_addr.start_addr_phy);
+	// debug_print("mapped_buffer:%08x\n", mapped_buffer);
 
-	if ((void *)-1 == (void *) mapped_buffer) {
-		err_print("MMAP of dedicated memory fail\n");
-		goto FREELIST;
-	}
-	id_alloc = (unsigned int *) mapped_buffer;
+	// if ((void *)-1 == (void *) mapped_buffer) {
+	// 	err_print("MMAP of dedicated memory fail\n");
+	// 	goto FREELIST;
+	// }
+	// id_alloc = (unsigned int *) mapped_buffer;
 
 
-	mapped_pci = mmap(0, temp->res_value[bar_chosen + 1][1],
-				PROT_READ | PROT_WRITE, MAP_SHARED,
-					fd, (off_t) temp->res_value[bar_chosen + 1][0]);
+	// mapped_pci = mmap(0, temp->res_value[bar_chosen + 1][1],
+	// 			PROT_READ | PROT_WRITE, MAP_SHARED,
+	// 				fd, (off_t) temp->res_value[bar_chosen + 1][0]);
 
-	printf("PCI mapping:  BAR%d size:%08x at addr:%08x mapped at %08x\n",
-				bar_chosen,
-				temp->res_value[bar_chosen + 1][1],
-				temp->res_value[bar_chosen + 1][0],
-				mapped_pci);
+	// printf("PCI mapping:  BAR%d size:%08x at addr:%08x mapped at %08x\n",
+	// 			bar_chosen,
+	// 			temp->res_value[bar_chosen + 1][1],
+	// 			temp->res_value[bar_chosen + 1][0],
+	// 			mapped_pci);
 
-	if ((void *)-1 == (void *) mapped_pci) {
-		err_print("MMAP EP's BAR  memory fail\n");
-		goto FREELIST;
-	}
+	// if ((void *)-1 == (void *) mapped_pci) {
+	// 	err_print("MMAP EP's BAR  memory fail\n");
+	// 	goto FREELIST;
+	// }
 
-	test = (unsigned int *)mapped_pci;
+	// test = (unsigned int *)mapped_pci;
 
-	if (ti81xx_prepare_mgmt_info(&mgmt_area, size_buf) < 0) {
-		err_print("prepare_mgmt_info failed\n");
-		goto FREELIST;
-	}
 
-	ti81xx_set_mgmt_area(&mgmt_area, (unsigned int *)mapped_buffer);
+	// ti81xx_set_mgmt_area(&mgmt_area, (unsigned int *)mapped_buffer);
 
-	id_alloc[0] = 0;
-	id_alloc[1] = 1; /* rc unique id 1 always */
+	// id_alloc[0] = 0;
+	// id_alloc[1] = 1; /* rc unique id 1 always */
 
-	#if defined(INTEGRITY) || defined(THPT)
-	/* dedicate buffer 0 to remote ep having my uniue id
-	* field 2  for writing and buffer 1 for reading
-	*/
-	dedicate_buffer((unsigned int *)mapped_buffer,
-						bar_chosen, mgmt_area.no_blk, 0, RD);
+	// #if defined(INTEGRITY) || defined(THPT)
+	// /* dedicate buffer 0 to remote ep having my uniue id
+	// * field 2  for writing and buffer 1 for reading
+	// */
+	// dedicate_buffer((unsigned int *)mapped_buffer,
+	// 					ep_id, mgmt_area.no_blk, 0, RD);
 
-	#ifdef THPT
-	dedicate_buffer((unsigned int *)mapped_buffer,
-						bar_chosen, mgmt_area.no_blk, 1, WR);
-	#endif
+	// #ifdef THPT
+	// dedicate_buffer((unsigned int *)mapped_buffer,
+	// 					ep_id, mgmt_area.no_blk, 1, WR);
+	// #endif
 
-	#endif
+	// #endif
 
-	debug_print("initialization of management mgmt_area complete\n");
-	ti81xx_calculate_ptr(&mgmt_area, mapped_buffer, &ptr);
-	mgmt_area.my_unique_id = 1;
+	// debug_print("initialization of management mgmt_area complete\n");
+	// ti81xx_calculate_ptr(&mgmt_area, mapped_buffer, &ptr);
+	// mgmt_area.my_unique_id = 1;
 
 #if 0
 	printf("notify EP about interrupt capability 1--int 2--polling\n");
 	scanf("%u", &int_cap);
 #else
-    #if defined(INTERRUPT_CAPABILITY)
-	printf("***Forcing interrupt capability.\n");
-	int_cap = 1;
-    #else
-	printf("***Forcing polling (interrupt communication disabled, "
-			"RC will not generate interrupt)\n");
-	int_cap = 2;
-    #endif
+ //    #if defined(INTERRUPT_CAPABILITY)
+	// printf("***Forcing interrupt capability.\n");
+	// int_cap = 1;
+ //    #else
+	// printf("***Forcing polling (interrupt communication disabled, "
+	// 		"RC will not generate interrupt)\n");
+	// int_cap = 2;
+ //    #endif
 #endif
 
-	test[5] = int_cap;
+	// test[5] = int_cap;
 
-	/* As for now app is demonstrating interrupt notification from peer*/
-	debug_print("management area before "
-				"int cap recevied from remote peer\n\n\n");
+	//  As for now app is demonstrating interrupt notification from peer
+	// debug_print("management area before "
+	// 			"int cap recevied from remote peer\n\n\n");
 
-	total_fld = 6 + mgmt_area.no_blk * 2 + mgmt_area.no_blk * 5;
+	// total_fld = 6 + mgmt_area.no_blk * 2 + mgmt_area.no_blk * 5;
 
 #if 0
 	debug_print("Management area dump:\n");
@@ -523,159 +867,161 @@ int main(int argc, char **argv)
 			debug_print("\n");
 	}
 #endif
-	debug_print("waiting for interrupt capability from remote end\n");
-	while (id_alloc[5] == 0) {
-		debug_print("waiting for remote end point "
-					"to interrupt capability\n");
-#if 0
-		for (i = 0; i < total_fld; i++) {
-			debug_print("0x%X ", id_alloc[i]);
-			if ((i + 1) % 6 == 0)
-				debug_print("\n");
-		}
-#endif
+// 	debug_print("waiting for interrupt capability from remote end\n");
+// 	while (id_alloc[5] == 0) {
+// 		debug_print("waiting for remote end point "
+// 					"to interrupt capability\n");
+// #if 0
+// 		for (i = 0; i < total_fld; i++) {
+// 			debug_print("0x%X ", id_alloc[i]);
+// 			if ((i + 1) % 6 == 0)
+// 				debug_print("\n");
+// 		}
+// #endif
 
-		debug_print("int capability recevied from "
-					"rmt peer is 0x%X\n", id_alloc[5]);
-		sleep(1);
-	}
-	debug_print("int capability recevied from "
-					"rmt peer is 0x%X\n", id_alloc[5]);
+// 		debug_print("int capability recevied from "
+// 					"rmt peer is 0x%X\n", id_alloc[5]);
+// 		sleep(1);
+// 	}
+// 	debug_print("int capability recevied from "
+// 					"rmt peer is 0x%X\n", id_alloc[5]);
 
 
-	#if defined(INTEGRITY) || defined(THPT)
-	/* here demonstrating THPT and INTEGRITY only receving interrupt
-	* mechanism polling will have same effect except it have to poll
-	* rather then wait for interrupt.
-	*/
-	if (id_alloc[5] != 1) {
-		err_print("Exiting the application since EP doesn't have "
-				"interrupt capability and THROUGHPUT/INTEGRITY "
-				"tets require it.\n");
-		goto FREELIST;
-	}
+	// #if defined(INTEGRITY) || defined(THPT)
+	// /* here demonstrating THPT and INTEGRITY only receving interrupt
+	// * mechanism polling will have same effect except it have to poll
+	// * rather then wait for interrupt.
+	// */
+	// if (id_alloc[5] != 1) {
+	// 	err_print("Exiting the application since EP doesn't have "
+	// 			"interrupt capability and THROUGHPUT/INTEGRITY "
+	// 			"tets require it.\n");
+	// 	goto FREELIST;
+	// }
 
-	#ifdef INTEGRITY
-	wr_buf.size_buf = size_buf;
-	debug_print("size of buffer on RC is %u\n", wr_buf.size_buf);
-	wr_buf.user_buf = malloc(size_buf);
-	if (wr_buf.user_buf == NULL) {
-		printf("user buffer allocation failed\n");
-		goto FREELIST;
-	}
-	if (find_dedicated_buffer((unsigned int *)mapped_pci,
-			mgmt_area.my_unique_id, &wr_buf.bufd, RD) < 0) {
-		err_print("no dedicated buffer for TX on remote peer\n");
-		goto FREELIST;
-	}
+	// #ifdef INTEGRITY
+	// wr_buf.size_buf = size_buf;
+	// debug_print("size of buffer on RC is %u\n", wr_buf.size_buf);
+	// wr_buf.user_buf = malloc(size_buf);
+	// if (wr_buf.user_buf == NULL) {
+	// 	printf("user buffer allocation failed\n");
+	// 	goto FREELIST;
+	// }
+	// if (find_dedicated_buffer((unsigned int *)mapped_pci,
+	// 		mgmt_area.my_unique_id, &wr_buf.bufd, RD) < 0) {
+	// 	err_print("no dedicated buffer for TX on remote peer\n");
+	// 	goto FREELIST;
+	// }
 
-	debug_print("offset of buffer is %x\n", wr_buf.bufd.off_st);
-	#endif
+	// debug_print("offset of buffer is %x\n", wr_buf.bufd.off_st);
+	// #endif
 
-	#ifdef THPT
-	rd_buf.size_buf = size_buf;
-	rd_buf.user_buf = NULL;
+	// #ifdef THPT
+	// rd_buf.size_buf = size_buf;
+	// rd_buf.user_buf = NULL;
 
-	if (find_dedicated_buffer((unsigned int *)mapped_buffer,
-						bar_chosen, &rd_buf.bufd, WR) < 0) {
-		err_print("no dedicated buffer on local peer to be RX "
-							"by remote peer\n");
-		goto FREELIST;
-	}
+	// if (find_dedicated_buffer((unsigned int *)mapped_buffer,
+	// 					ep_id, &rd_buf.bufd, WR) < 0) {
+	// 	err_print("no dedicated buffer on local peer to be RX "
+	// 						"by remote peer\n");
+	// 	goto FREELIST;
+	// }
 
-	/* populate source buffer to be read by remote peer */
-	memset(mapped_buffer + (rd_buf.bufd).off_st, 97, rd_buf.size_buf);
-	#endif
+	// /* populate source buffer to be read by remote peer */
+	// memset(mapped_buffer + (rd_buf.bufd).off_st, 97, rd_buf.size_buf);
+	// #endif
 
-	if (id_alloc[5] == INT) {
-		#ifdef INTEGRITY
-		/* SEND TO DEDICATED BUF AND RECEIVE NOTOFICATION FROM REMOTE
-		* PEER ABOUT DATA RECEPTION
-		*/
-		pthread_create(&t1, &attr_t1, send_to_dedicated_buf, &wr_buf);
-		pthread_create(&t2, &attr_t2, wait_for_int, NULL);
-		#endif
+	// if (id_alloc[5] == INT) {
+	// 	#ifdef INTEGRITY
+	// 	/* SEND TO DEDICATED BUF AND RECEIVE NOTOFICATION FROM REMOTE
+	// 	* PEER ABOUT DATA RECEPTION
+	// 	*/
+	// 	pthread_create(&t1, &attr_t1, send_to_dedicated_buf, &wr_buf);
+	// 	pthread_create(&t2, &attr_t2, wait_for_int, NULL);
+	// 	#endif
 
-		#ifdef THPT
-		debug_print("executing test case TX from EP\n");
-		pthread_create(&t2, &attr_t2, wait_for_int, NULL);
-		pthread_join(t2, NULL);
-		sleep(4);
-		debug_print("executing test case RX/TX from EP\n");
-		/*pthread_create(&t3, &attr_t3, thpt_buf_read_data , &rd_buf);*/
-		pthread_create(&t2, &attr_t2, wait_for_int, NULL);
-		#endif
-		goto JOIN;
-	} else
-		goto FREELIST;
-	#endif
+	// 	#ifdef THPT
+	// 	debug_print("executing test case TX from EP\n");
+	// 	pthread_create(&t2, &attr_t2, wait_for_int, NULL);
+	// 	pthread_join(t2, NULL);
+	// 	sleep(4);
+	// 	debug_print("executing test case RX/TX from EP\n");
+	// 	/*pthread_create(&t3, &attr_t3, thpt_buf_read_data , &rd_buf);*/
+	// 	pthread_create(&t2, &attr_t2, wait_for_int, NULL);
+	// 	#endif
+	// 	goto JOIN;
+	// } else
+	// 	goto FREELIST;
+	// #endif
 
-	if (id_alloc[5] == INT) {
-		debug_print("interrupt will be working on this end\n");
-		pthread_create(&t1, &attr_t1, send_data, NULL);
-		pthread_create(&t2, &attr_t2, wait_for_int, NULL);
-		pthread_create(&t3, &attr_t3, push_data_in_local, NULL);
-	} else {
-		debug_print("polling will be working on this end\n");
-		pthread_create(&t1, &attr_t1, send_data, NULL);
-		pthread_create(&t2, &attr_t2, wait_for_data, NULL);
-		pthread_create(&t3, &attr_t3, push_data_in_local, NULL);
-	}
+	// if (id_alloc[5] == INT) {
+	// 	debug_print("interrupt will be working on this end\n");
+	// 	pthread_create(&t1, &attr_t1, send_data, NULL);
+	// 	pthread_create(&t2, &attr_t2, wait_for_int, NULL);
+	// 	pthread_create(&t3, &attr_t3, push_data_in_local, NULL);
+	// } else {
+	// 	debug_print("polling will be working on this end\n");
+	// 	pthread_create(&t1, &attr_t1, send_data, NULL);
+	// 	pthread_create(&t2, &attr_t2, wait_for_data, NULL);
+	// 	pthread_create(&t3, &attr_t3, push_data_in_local, NULL);
+	// }
 
 	/*never executed in demo mode */
-	pthread_join(t1, NULL);
-	pthread_join(t2, NULL);
-	pthread_join(t3, NULL);
+	// pthread_join(t1, NULL);
+	// pthread_join(t2, NULL);
+	// pthread_join(t3, NULL);
 	/*currently all thread are running a while loop */
-	#if defined(INTEGRITY) || defined(THPT)
-JOIN:
-	#endif
-	pthread_join(t2, NULL);
+	// #if defined(INTEGRITY) || defined(THPT)
+// JOIN:
+// 	#endif
+// 	pthread_join(t2, NULL);
 
-	#ifdef INTEGRITY
-	pthread_join(t1, NULL);
-	#endif
-	/*
-	#ifdef THPT
-	pthread_join(t3, NULL);
-	#endif*/
+// 	#ifdef INTEGRITY
+// 	pthread_join(t1, NULL);
+// 	#endif
+// 	/*
+// 	#ifdef THPT
+// 	pthread_join(t3, NULL);
+// 	#endif*/
 
 FREELIST:
 	free_list(start);
 
 ERROR:
-	#ifdef INTEGRITY
-	while (id_alloc[0] != 2) {
-		debug_print("waiting for turn\n");
-			sleep(1);
-	}
+	// #ifdef INTEGRITY
+	// while (id_alloc[0] != 2) {
+	// 	debug_print("waiting for turn\n");
+	// 		sleep(1);
+	// }
 
-	sleep(3);
+	// sleep(3);
 	/* send 1000 interrupt to EP for stress testing */
+#if 0
 	for (i = 0; i < 1000; i++) {
-		ioctl(fd, TI81XX_RC_SEND_MSI, bar0_addr/*bar 0 of ep2 */);
+		ioctl(fd, TI81XX_RC_SEND_MSI, bar0_addrbar 0 of ep2 );
 		/*debug_print("interrupt send %u times\n",i+1);*/
 	}
+#endif
 	close(fd);
 	fclose(fp1);
 	fclose(fp2);
-	if (test_integrity == 0) {
-		sprintf(test_summary[1].result, "%s", "Pass");
-		sprintf(test_summary[5].result, "%s", "Pass");
-		sprintf(test_summary[7].result, "%s", "Pass");
-		sprintf(test_summary[9].result, "%s", "Pass");
-		sprintf(test_summary[12].result, "%s", "Pass");
-		sprintf(test_summary[15].result, "%s", "Pass");
-	}
+	// if (test_integrity == 0) {
+	// 	sprintf(test_summary[1].result, "%s", "Pass");
+	// 	sprintf(test_summary[5].result, "%s", "Pass");
+	// 	sprintf(test_summary[7].result, "%s", "Pass");
+	// 	sprintf(test_summary[9].result, "%s", "Pass");
+	// 	sprintf(test_summary[12].result, "%s", "Pass");
+	// 	sprintf(test_summary[15].result, "%s", "Pass");
+	// }
 
-	printf("test summary:\nNE/C : means not executed or "
-				"confirmed at this end:\n other test cases "
-				"will be covered by demo mode\n");
-	for (i = 0; i <= 18; i++)
-		printf("%s\t %s\n", test_summary[i].test_case_id,
-							test_summary[i].result);
+	// printf("test summary:\nNE/C : means not executed or "
+	// 			"confirmed at this end:\n other test cases "
+	// 			"will be covered by demo mode\n");
+	// for (i = 0; i <= 18; i++)
+	// 	printf("%s\t %s\n", test_summary[i].test_case_id,
+	// 						test_summary[i].result);
 
-	#endif
+	// #endif
 
 	return 0;
 }
@@ -683,10 +1029,11 @@ ERROR:
 
 void *wait_for_data(void *arg)
 {
+	ep_process_t *ep = (ep_process_t*) arg;
 	int try = 0;
 	while (1) {
 		sleep(1);
-		process_local_rmt_bufs();
+		process_local_rmt_bufs(ep);
 		try++;
 		debug_print("data for reading is available "
 						"called %d times\n", try);
@@ -697,12 +1044,13 @@ void *wait_for_data(void *arg)
 
 void *send_data(void *arg)
 {
+	ep_process_t *ep = (ep_process_t*) arg;
 	int try = 0;
 	while (1) {
 		sleep(11);
-		send_data_by_cpu();
-		if (int_cap == 1)
-			ioctl(fd, TI81XX_RC_SEND_MSI, bar0_addr/*bar 0 of ep2 */);
+		send_data_by_cpu(arg);
+		if (ep->int_cap == 1)
+			ioctl(fd, TI81XX_RC_SEND_MSI, ep->bar0_addr/*bar 0 of ep2 */);
 		debug_print("INFO: send data %d times\n", try);
 		try++;
 	}
@@ -714,12 +1062,13 @@ void *send_data(void *arg)
 
 void *push_data_in_local(void *arg)
 {
+	ep_process_t *ep = (ep_process_t*) arg;
 	int try = 0;
 	while (1) {
 		sleep(10);
-		push_data();
-		if (int_cap == 1)
-			ioctl(fd, TI81XX_RC_SEND_MSI, bar0_addr/*bar 0 of ep2*/);
+		push_data(ep);
+		if (ep->int_cap == 1)
+			ioctl(fd, TI81XX_RC_SEND_MSI, ep->bar0_addr/*bar 0 of ep2*/);
 			/* send MSI */
 		debug_print("INFO: send data %d times\n", try);
 		try++;
@@ -730,6 +1079,7 @@ void *push_data_in_local(void *arg)
 
 void *wait_for_int(void * arg)
 {
+	ep_process_t *ep = (ep_process_t*) arg;
 	int ret;
 	#if defined(INTEGRITY) || defined(THPT)
 	byte_recv = 0;
@@ -738,16 +1088,16 @@ void *wait_for_int(void * arg)
 		ret = poll(fds, 1, 3000); /*3 sec wait time out*/
 		if (ret == POLLIN) {
 			#ifdef INTEGRITY
-			ti81xx_poll_for_data(&ptr, &mgmt_area,
-						mapped_buffer, fp2, &byte_recv);
+			ti81xx_poll_for_data(&ep->ptr, ep->mgmt_area,
+						ep->mapped_buffer, fp2, &byte_recv);
 			#endif
 			#ifdef THPT
-			ti81xx_poll_for_data(&ptr, &mgmt_area,
-					mapped_buffer, NULL, &byte_recv);
+			ti81xx_poll_for_data(&ep->ptr, ep->mgmt_area,
+					ep->mapped_buffer, NULL, &byte_recv);
 			#endif
 			#ifdef DISPLAY
-			ti81xx_poll_for_data(&ptr, &mgmt_area,
-						mapped_buffer, NULL, NULL);
+			ti81xx_poll_for_data(&ep->ptr, ep->mgmt_area,
+						ep->mapped_buffer, NULL, NULL);
 			#endif
 			/*process_remote_buffer_for_data(mapped_pci, CPU, 0);*/
 
@@ -769,7 +1119,7 @@ void *wait_for_int(void * arg)
 	#endif
 	#ifdef INTEGRITY
 	fseek(fp2, 0 , SEEK_SET);
-	test_integrity = check_integrity(fp1, fp2);
+	ep->test_integrity = check_integrity(fp1, fp2);
 	#endif
 	pthread_exit(NULL);
 }
