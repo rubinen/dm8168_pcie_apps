@@ -118,6 +118,7 @@ int integrity_test;
 char pattern[200] = {"## Endpoint marker ## "};
 int debug_test = 0;
 int bar_chosen = 2;
+int ep_id = 22;
 
 void send_data_by_cpu()
 {
@@ -606,12 +607,15 @@ static int parse_opts(int argc, char **argv)
 
 	opterr = 0;
 
-	while ((c = getopt (argc, argv, "vb:s:")) != -1)
+	while ((c = getopt (argc, argv, "ve:b:s:")) != -1)
 	{
 		switch (c)
 		{
 			case 'v':
 				debug_test = 1;
+				break;
+			case 'e':
+				ep_id = atoi(optarg);
 				break;
 			case 'b':
 				bar_chosen = atoi(optarg);
@@ -729,6 +733,7 @@ int main(int argc, char **argv)
 	parse_opts(argc, argv);
 
 	printf("debugs: %d\n", debug_test);
+	printf("EP id :%d\n", ep_id);
 	printf("BAR%d used\n", bar_chosen);
 #if !defined(INTEGRITY) && !defined(THPT)
 	printf("check for following pattern on RC side: \n '%s' \n", pattern);
@@ -842,7 +847,7 @@ int main(int argc, char **argv)
 	/******* by default uid 2 is assigned to This EP ****/
 
 	test[0] = bar_chosen;
-	test[1] = bar_chosen;
+	test[1] = ep_id;
 	fd_dma = open("/dev/ti81xx_edma_ep", O_RDWR);
 	if (fd_dma == -1) {
 		err_print("EP DMA device file open fail\n");
