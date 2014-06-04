@@ -49,6 +49,14 @@ extern int debug_test;
 	do { if (DEBUG_TEST) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
 				__LINE__, __func__, ##__VA_ARGS__); } while (0)
 
+#define vdebug_print(fmt, ...) \
+  do { if (DEBUG_TEST > 1) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
+        __LINE__, __func__, ##__VA_ARGS__); } while (0)
+
+#define dprint(fmt, ...) \
+  do { if (DEBUG_TEST) fprintf(stderr, "[%s:%d] " fmt, \
+        __func__, __LINE__, ##__VA_ARGS__); } while (0)
+
 /* in debug mode every thing will be printed
  * error will always be printed
  */

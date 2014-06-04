@@ -81,6 +81,9 @@ int add_resource_in_list(FILE *fr, struct pci_sys_info **start)
 
 int fetch_my_unique_id(unsigned int *mgmt_area, struct pci_sys_info *node)
 {
+	debug_print("mgmt_area [0]:%d [1]:%d [2]:%d\n",
+			mgmt_area[0], mgmt_area[1], mgmt_area[2]);
+
 	node->res_value[0][0] = mgmt_area[1];
 	node->res_value[0][1] = 2; /*by default BAR 2 mapping is assumed.*/
 	return 0;

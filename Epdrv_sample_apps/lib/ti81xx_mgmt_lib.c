@@ -66,14 +66,14 @@ int ti81xx_set_mgmt_area(struct ti81xx_mgmt_area *mgmt_area,
 			GENERAL_INFO_SIZE - 2 * sizeof(unsigned int));
 	mapped_buffer += 6;
 	/* 6 are no of elements in general info size (6 u32)*/
-	memcpy(mapped_buffer, mgmt_area->free_Q,
-					FREE_Q_SIZE(mgmt_area->no_blk));
-	mapped_buffer += mgmt_area->no_blk;
-	memcpy(mapped_buffer, mgmt_area->Used_Q,
-					USED_Q_SIZE(mgmt_area->no_blk));
-	mapped_buffer += mgmt_area->no_blk;
-	memcpy(mapped_buffer, mgmt_area->mgmt_blk,
-					MGMT_BLKS_SIZE(mgmt_area->no_blk));
+	// memcpy(mapped_buffer, mgmt_area->free_Q,
+	// 				FREE_Q_SIZE(mgmt_area->no_blk));
+	// mapped_buffer += mgmt_area->no_blk;
+	// memcpy(mapped_buffer, mgmt_area->Used_Q,
+	// 				USED_Q_SIZE(mgmt_area->no_blk));
+	// mapped_buffer += mgmt_area->no_blk;
+	// memcpy(mapped_buffer, mgmt_area->mgmt_blk,
+	// 				MGMT_BLKS_SIZE(mgmt_area->no_blk));
 	return 0;
 }
 
@@ -542,10 +542,10 @@ int ti81xx_poll_for_data(struct ti81xx_ptrs *ptr,
 		rd_idx = (unsigned int *)(mapped_buffer + offset);
 		wr_idx = rd_idx + 1;
 
-		debug_print("mapped_buffer:%08x offset:%08x rd_idx:%p wr_idx:%p\n", mapped_buffer, offset, rd_idx, wr_idx);
+		vdebug_print("mapped_buffer:%08x offset:%08x rd_idx:%p wr_idx:%p\n", mapped_buffer, offset, rd_idx, wr_idx);
 
 		#ifndef THPT
-		debug_print("wr_idx  %u  wr_idx_ptr 0x%x rd_IDX %u rd_idx_ptr "
+		vdebug_print("wr_idx  %u  wr_idx_ptr 0x%x rd_IDX %u rd_idx_ptr "
 				" 0x%x used_Q %u[5-RD/6-WR]\n",
 						*wr_idx, (unsigned int)wr_idx,
 						*rd_idx, (unsigned int)rd_idx,
@@ -554,7 +554,7 @@ int ti81xx_poll_for_data(struct ti81xx_ptrs *ptr,
 		if ((*wr_idx - *rd_idx) && (used_Q[i] == RD)) {
 
 			#ifndef THPT
-			debug_print("there is data in buffer %u rd_idx=%u  "
+			vdebug_print("there is data in buffer %u rd_idx=%u  "
 					"wr_idx=%u\n", i, *rd_idx, *wr_idx);
 			#endif
 
@@ -595,17 +595,17 @@ int ti81xx_poll_for_data(struct ti81xx_ptrs *ptr,
 			*wr_idx = 0; /* update wr_index to be zero again */
 
 			#ifndef THPT
-			debug_print("wr_index has been updated to zero\n");
+			vdebug_print("wr_index has been updated to zero\n");
 			#endif
 
 			#ifndef INTEGRITY
 			#ifndef THPT
 			/*remove from used -Q*/
 			ti81xx_access_used_Q(&value, i, SET, ptr);
-			debug_print("buffer remove from used Q\n");
+			vdebug_print("buffer remove from used Q\n");
 			/*update in free-Q*/
 			ti81xx_access_free_Q(&value, i, SET, ptr);
-			debug_print("buffer update  in  free  Q\n");
+			vdebug_print("buffer update  in  free  Q\n");
 			#endif
 			#endif
 
@@ -618,7 +618,7 @@ int ti81xx_poll_for_data(struct ti81xx_ptrs *ptr,
 		#ifndef THPT
 		#ifndef INTEGRITY
 		if ((*wr_idx == *rd_idx) && (used_Q[i] == WR)) {
-			debug_print("data has been read by peer , "
+			vdebug_print("data has been read by peer , "
 						"recycle this %d buffer\n", i);
 			/*remove from used -Q*/
 			ti81xx_access_used_Q(&value, i, SET, ptr);
