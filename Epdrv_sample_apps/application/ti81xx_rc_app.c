@@ -988,7 +988,8 @@ FREELIST:
 	free_list(start);
 
 ERROR:
-	// #ifdef INTEGRITY
+	close(fd);
+	#ifdef INTEGRITY
 	// while (id_alloc[0] != 2) {
 	// 	debug_print("waiting for turn\n");
 	// 		sleep(1);
@@ -1002,7 +1003,6 @@ ERROR:
 		/*debug_print("interrupt send %u times\n",i+1);*/
 	}
 #endif
-	close(fd);
 	fclose(fp1);
 	fclose(fp2);
 	// if (test_integrity == 0) {
@@ -1021,7 +1021,7 @@ ERROR:
 	// 	printf("%s\t %s\n", test_summary[i].test_case_id,
 	// 						test_summary[i].result);
 
-	// #endif
+	#endif
 
 	return 0;
 }
