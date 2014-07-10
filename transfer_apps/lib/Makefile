@@ -1,6 +1,6 @@
 INTINC=./int_include
 INTLIB=./int_lib
-INTCFLAGS =-I$(INTINC)
+INTCFLAGS =-I$(INTINC) -I../include
 
 INT_OBJS_CLIENT=$(INTLIB)/ti81xx_mgmt_lib.o $(INTLIB)/ti81xx_trans.o $(INTLIB)/ti81xx_ep_lib.o
 OBJ_CLIENT=lib_pcie_client.o

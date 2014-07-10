@@ -2,6 +2,9 @@
 #include "ti81xx_mgmt_lib.h"
 #include "ti81xx_trans.h"
 
+#define debug_print2(fmt , arg...)
+// #define debug_print2(fmt , arg...) debug_print(fmt , ## arg)
+
 /**
  * add_node_in_list(): Add information node in global list.
  * @pci_info: node to be added
@@ -196,16 +199,16 @@ int get_devices(struct pci_sys_info **start)
 		strcpy(file_class, top_dir);
 		strcat(file_vendor, file_med);
 		strcat(file_vendor, VENDOR);
-		debug_print("vendor file name is %s\n", file_vendor);
+		debug_print2("vendor file name is %s\n", file_vendor);
 		strcat(file_device, file_med);
 		strcat(file_device, DEVICE);
-		debug_print("device file name is %s\n", file_device);
+		debug_print2("device file name is %s\n", file_device);
 		strcat(file_resource, file_med);
 		strcat(file_resource, RESOURCE);
-		debug_print("resource file name is %s\n", file_resource);
+		debug_print2("resource file name is %s\n", file_resource);
 		strcat(file_class, file_med);
 		strcat(file_class, CLASS);
-		debug_print("class file name is %s\n", file_class);
+		debug_print2("class file name is %s\n", file_class);
 		fv = fopen(file_vendor, "r");
 		if (fv == NULL) {
 			debug_print("vendor file %s open fail\n", file_vendor);
@@ -248,10 +251,10 @@ int get_devices(struct pci_sys_info **start)
 		class_code = strtoul(class, NULL, 16);
 		if ((vendor == VENDOR_ID) && ((device >= DEVICE_ID))) {
 			if ((class_code  >> 8) == 0x0604)
-				debug_print("Skipping RC: file %s\n", file_med);
+				debug_print2("Skipping RC: file %s\n", file_med);
 			else {
 				eps++;
-				debug_print("\n EP has been found here vendor=0x%X "
+				debug_print2("\n EP has been found here vendor=0x%X "
 						"device=0x%X\n", vendor, device);
 				if (add_resource_in_list(fr, start) == -1) {
 					debug_print("resource fetch fail\n");
@@ -259,7 +262,7 @@ int get_devices(struct pci_sys_info **start)
 				}
 			}
 		} else {
-			debug_print("this file is not related to EP : "
+			debug_print2("this file is not related to EP : "
 							"file %s\n", file_med);
 		}
 		fclose(fd);
@@ -298,15 +301,21 @@ int propagate_system_info(struct pci_sys_info *start, int fd,
 		bar2_addr = temp->res_value[3][0];
 		bar2_size = temp->res_value[3][1];
 
+		debug_print("bar2_addr:%08x bar2_size:%d \n", bar2_addr, bar2_size);
+
 		mgmt_area = mmap(0, bar2_size, PROT_READ|PROT_WRITE,
 					MAP_SHARED, fd, (off_t)bar2_addr);
-
+		debug_print("mgmt_area:%p \n", mgmt_area);
 		if ((void *)-1 == (void *) mgmt_area) {
 			debug_print("mmap bar2 of EP having ID %u "
 					"failed\n", temp->res_value[0][0]);
 			close(fd);
 			return -1;
 		}
+
+		debug_print("mgmt_area.. \n");
+		debug_print("mgmt_area[0]:%d \n", mgmt_area[0]);
+
 		fetch_my_unique_id(mgmt_area, temp);
 		munmap(mgmt_area, bar2_size);
 	}
@@ -315,6 +324,7 @@ int propagate_system_info(struct pci_sys_info *start, int fd,
 
 		bar2_addr = temp->res_value[3][0];
 		bar2_size = temp->res_value[3][1];
+		debug_print("bar2_addr:%08x bar2_size:%d \n", bar2_addr, bar2_size);
 
 		mgmt_area = mmap(0, bar2_size, PROT_READ | PROT_WRITE,
 					MAP_SHARED, fd, (off_t) bar2_addr);

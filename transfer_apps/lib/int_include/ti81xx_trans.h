@@ -51,7 +51,7 @@ extern inline void release_mgmt_area(unsigned int *mgmt_area);
 extern int get_free_buffer(unsigned int *mgmt_area);
 extern unsigned int offset_to_buffer(unsigned int *mgmt_area, int i);
 extern int send_to_remote_buf_by_cpu(unsigned int *mgmt_area,
-					unsigned int off_st, int i);
+					unsigned int off_st, int i, char *data, int data_len);
 extern int put_data_in_local_buffer(unsigned int *mgmt_area,
 					unsigned int off_st, int i);
 extern int read_from_remote_buf_by_cpu(char *mgmt_area, unsigned int off_st);

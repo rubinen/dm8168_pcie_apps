@@ -175,27 +175,26 @@ unsigned int offset_to_buffer(unsigned int *mgmt_area, int i)
  */
 
 int send_to_remote_buf_by_cpu(unsigned int *mgmt_area,
-						unsigned int off_st, int i)
+						unsigned int off_st, int i, char *data, int data_len)
 {
 	unsigned int no_blk = mgmt_area[2];
 	char *buf = (char *)mgmt_area;
-	/*
-	 * sending known pattern "BBBBBBB" of 510 bytes.
-	 */
-	memset(buf + off_st, 67, 510);
-	memcpy(buf + off_st + 30, pattern, strlen(pattern));
+	if (data && data_len)
+	{
+		memcpy(buf + off_st, data, data_len);
 
-	/*
-	 * update write index of buffer
-	 */
-	mgmt_area[6 + 2 * no_blk  +  i * 5 + 2] = 510;
-	/* i*5 indicates 5 no of field in mgmt_blk */
+		/*
+		 * update write index of buffer
+		 */
+		mgmt_area[6 + 2 * no_blk  +  i * 5 + 2] = data_len;
+		/* i*5 indicates 5 no of field in mgmt_blk */
 
-	/*
-	 * update status in used Q as RD
-	 */
+		/*
+		 * update status in used Q as RD
+		 */
 
-	mgmt_area[6 + no_blk + i] = RD;
+		mgmt_area[6 + no_blk + i] = RD;
+	}
 	return 0;
 }
 
@@ -219,7 +218,7 @@ int put_data_in_local_buffer(unsigned int *mgmt_area,
 	* set known pattern in buffer
 	*/
 	memset((buf + off_st), 76, 510);
-	memcpy(buf + off_st + 30, pattern, strlen(pattern));
+	// memcpy(buf + off_st + 30, pattern, strlen(pattern));
 	/*
 	* update write index of buffer
 	*/
@@ -434,7 +433,7 @@ int send_to_remote_buf_by_dma(unsigned int *mgmt_area,
 	*/
 
 	memset(info.user_buf, 68, 510);
-	memcpy(info.user_buf + 30, pattern, strlen(pattern));
+	// memcpy(info.user_buf + 30, pattern, strlen(pattern));
 
 	info.dest = (unsigned int *)(outb_address + off_st);
 	info.src = 0;
@@ -534,7 +533,7 @@ int find_dedicated_buffer(unsigned int *mgmt_area, unsigned int muid,
 
 	if (j == mgmt_area_info.no_blk) {
 		debug_print("no buffer with used_Q status %u [5-RD/6-WR]is "
-				"dedicated for peer having id %u",
+				"dedicated for peer having id %u\n",
 							choice, muid);
 		free(mgmt_area_info.mgmt_blk);
 		free(mgmt_area_info.Used_Q);

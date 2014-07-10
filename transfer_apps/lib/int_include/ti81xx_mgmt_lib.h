@@ -51,11 +51,12 @@
 #define INPROCESS	1
 
 
+#define RC_UNIQ_ID		1
 
 
-#define INT			1
-#define POLL			2
-#define MAX_BLOCKS		3
+#define INT_CAP				1
+#define POLL_CAP			2
+#define MAX_BLOCKS		6
 #define GENERAL_INFO_SIZE	(sizeof(unsigned int) * 6)
 #define FREE_Q_SIZE(no_blk)	(sizeof(unsigned int) * no_blk)
 #define USED_Q_SIZE(no_blk)	(sizeof(unsigned int) * no_blk)
@@ -157,6 +158,7 @@ struct dedicated_buf {
 /*
  * function declaration
  */
+int print_mgmt_area(char *func, int line, unsigned int *mgmt_area);
 
 int ti81xx_set_mgmt_area(struct ti81xx_mgmt_area *mgmt_area,
 					unsigned int *mapped_buffer);

@@ -1,6 +1,13 @@
 #ifndef __PCIE_COMMON__
 #define __PCIE_COMMON__
 
+
+#define PAGE_SIZE         4096
+#define ALIGNED(size, alignment) (!(size & (alignment-1)))
+
+#define CMD_LEN_MAX       128
+#define CMD_OPEN_LEN_MAX  120
+
 enum {
   PCIE_CMD_OPEN = 0,
   PCIE_CMD_CLOSE,
@@ -17,49 +24,47 @@ enum {
 };
 
 typedef struct pcie_cmd_open_s {
-  int   mode;        // mode of the opened file
-  // int   name_len; // length of the file name
-  char  name[128];   // name of the file to be opened
+  int   mode;       // mode of the opened file
+  char  name[CMD_OPEN_LEN_MAX];  // name of the file to be opened
 } pcie_cmd_open_t;
 
 typedef struct pcie_cmd_close_s {
-  int   handler;    // handler of the file to be closed
+  int   pcie_chan_handler;    // pcie channel handler
 } pcie_cmd_close_t;
 
 typedef struct pcie_cmd_lseek_s {
-  int   handler;    // handler of the file
-  int   offset;     // offset to set
+  int   pcie_chan_handler;    // pcie channel handler
+  int   offset;               // offset to set
 } pcie_cmd_lseek_t;
 
-typedef struct pcie_cmd_read_s {
-  int   handler;    // handler of the file to read
-  int   len;        // number of bytes to read
-  // char *buf;        // pointer to the data buffer
-} pcie_cmd_read_t;
+// typedef struct pcie_cmd_read_s {
+//   int   pcie_chan_handler;        // pcie channel handler
+//   int   rd_len;                   // number of bytes to read
+//   // char *buf;                   // pointer to the data buffer
+// } pcie_cmd_read_t;
 
-typedef struct pcie_cmd_write_s {
-  int   handler;    // handle of the file to write
-  int   len;        // number of bytes to write
-  // char *buf;        // pointer to the data buffer
-} pcie_cmd_write_t;
-
+typedef struct pcie_cmd_rdwr_s {
+  int   pcie_chan_handler;        // pcie channel handler
+  int   len;                      // number of bytes to read or write
+  // char *buf;                   // pointer to the data buffer
+} pcie_cmd_rdwr_t;
 
 typedef struct pcie_cmd_s {
+  void* ep_ptr;     // filled by RC according to EP channel used
   int   command;    // command type
   int   len;        // length of data, size of the command structure
                     //  ie. sizeof(pcie_cmd_write_t)
-  void *data;       // pointer to specific command structure,
+  char  data[CMD_LEN_MAX];       // buffer with specific command structure,
                     //  ie. (pcie_cmd_write_t*)
 } pcie_cmd_t;
 
-
 typedef struct pcie_response_s {
-  int   command;    // to which command response is dedicated
-  int   handler;    // handler of the file opened
-  int   result;     // command result:
-                    //     negative - error,
-                    //     0 - ok,
-                    //     positive - number if written or read bytes
+  int   pcie_chan_handler;    // pcie channel handler
+  int   command;              // to which command response is dedicated
+  int   result;               // command result:
+                              //     negative - error,
+                              //     0 - ok,
+                              //     positive - number if written or read bytes, offset set
 } pcie_response_t;
 
 

@@ -42,6 +42,68 @@
 #include "ti81xx_mgmt_lib.h"
 #include "debug_msg.h"
 
+#define APP_NAME     "ti81xx_mgmt_lib"
+
+#define dbg(level, debug, fmt, arg...)                \
+  do {                                                \
+    if (debug >= (level)) {                           \
+      printf("\n"APP_NAME" [%d] %s():%d ", getpid(), __FUNCTION__, __LINE__); \
+      printf(fmt , ## arg); \
+    } \
+  } while (0)
+
+#define dbgi(fmt, arg...)                \
+  do {                                                \
+      printf(APP_NAME" [%d] %s():%d ", getpid(), __FUNCTION__, __LINE__); \
+      printf(fmt , ## arg); \
+  } while (0)
+
+static int debug = 1;
+
+
+#define min(x, y)  (((x) < (y)) ? (x) : (y))
+
+int print_mgmt_area(char *func, int line, unsigned int *mgmt_area)
+{
+	int no_blk = 6;
+	int j = 0;
+	printf("[%s:%d] == mgmt_area:%p \n", func, line, mgmt_area);
+	printf("[%s:%d] == uid   :%d muid   :%d \n", func, line, mgmt_area[0], mgmt_area[1]);
+	printf("[%s:%d] == no_blk:%d offs   :%d \n", func, line, mgmt_area[2], mgmt_area[3]);
+	printf("[%s:%d] == size  :%d int_cap:%d \n", func, line, mgmt_area[4], mgmt_area[5]);
+
+	printf("[%s:%d] == free_Q:", func, line);
+	for (j = 0; j < no_blk; j++)
+	{
+		printf("%d ", mgmt_area[6 + j]);
+	}
+	printf("\n");
+	printf("[%s:%d] == used_Q:", func, line);
+	for (j = 0; j < no_blk; j++)
+	{
+		printf("%d ", mgmt_area[6 + no_blk + j]);
+	}
+	printf("\n");
+
+
+	for (j = 0; j < no_blk; j++)
+	{
+		// debug_print("mgmt_area blk[j] %p mgmt_blk_ptr:%p (%d)\n", mgmt_area, pntr, pntr - mgmt_area);
+		// printf("== mgmt_area:%p blk[%d] mgmt_area[status]:%p (%d) mgmt_area[choice]:%p (%d)\n",
+		//          mgmt_area,
+		//          j,
+		//          &mgmt_area[6 + 2 * no_blk + j * 5 + 3], &mgmt_area[6 + 2 * no_blk + j * 5 + 3] - mgmt_area,
+		//          &mgmt_area[6 + no_blk + j], &mgmt_area[6 + no_blk + j] - mgmt_area);
+		printf("[%s:%d] == blk[%d] status:%d  choice:%d \n",
+							func, line,
+		         j,
+		         j,
+		         mgmt_area[6 + 2 * no_blk + j * 5 + 3],
+		         mgmt_area[6 + no_blk + j]);
+	}
+}
+
+
 
 /**
  * ti81xx_set_mgmt_area() -- This function initialize management area
@@ -66,6 +128,7 @@ int ti81xx_set_mgmt_area(struct ti81xx_mgmt_area *mgmt_area,
 			GENERAL_INFO_SIZE - 2 * sizeof(unsigned int));
 	mapped_buffer += 6;
 	/* 6 are no of elements in general info size (6 u32)*/
+#if 0
 	memcpy(mapped_buffer, mgmt_area->free_Q,
 					FREE_Q_SIZE(mgmt_area->no_blk));
 	mapped_buffer += mgmt_area->no_blk;
@@ -74,6 +137,18 @@ int ti81xx_set_mgmt_area(struct ti81xx_mgmt_area *mgmt_area,
 	mapped_buffer += mgmt_area->no_blk;
 	memcpy(mapped_buffer, mgmt_area->mgmt_blk,
 					MGMT_BLKS_SIZE(mgmt_area->no_blk));
+#else
+/*
+	memset(mapped_buffer, 0,
+					FREE_Q_SIZE(mgmt_area->no_blk));
+	mapped_buffer += mgmt_area->no_blk;
+	memset(mapped_buffer, 0,
+					USED_Q_SIZE(mgmt_area->no_blk));
+	mapped_buffer += mgmt_area->no_blk;
+	memset(mapped_buffer, 0,
+					MGMT_BLKS_SIZE(mgmt_area->no_blk));
+*/
+#endif
 	return 0;
 }
 
@@ -133,6 +208,10 @@ int ti81xx_prepare_mgmt_info(struct ti81xx_mgmt_area *mgmt_area, unsigned int si
 	mgmt_area->size += 2 * FREE_Q_SIZE(mgmt_area->no_blk);
 	mgmt_area->offset = GENERAL_INFO_SIZE +
 				2 * FREE_Q_SIZE(mgmt_area->no_blk);
+
+	debug_print("no_blk:%d size:%08x offset:%08x size_buffer:%08x\n",
+		   mgmt_area->no_blk, mgmt_area->size, mgmt_area->offset, size_buffer);
+
 	mgmt_area->int_cap = 0; /*by default nothing.( INT, POLL are possible)*/
 
 	debug_print("initializing free/used queues\n");
@@ -353,6 +432,9 @@ int dedicate_buffer(unsigned int *mgmt_area, unsigned int muid,
 	mgmt_area[6 + 2 * no_blk + buf_no * 5 + 3] = muid;
 	/* set used Q filed of particular buffer to be RD/WR */
 	mgmt_area[6 + no_blk + buf_no] = choice;
+
+	debug_print("mgmt_area:%p \n", mgmt_area);
+
 	debug_print("buffer %u is dedicated  with %u[5-RD/6-WR] USED_Q status "
 				"to rmt peer having unique id %u\n", buf_no,
 					mgmt_area[6 + no_blk + buf_no], muid);
@@ -511,6 +593,126 @@ int dump_data_in_file_n(char *buf, unsigned int buf_len, char *name)
  * memory.
  *
  */
+
+int ti81xx_poll_for_data_in_block(int block, struct ti81xx_ptrs *ptr,
+					struct ti81xx_mgmt_area *mgmt_area,
+					char *mapped_buffer,
+					char *buf, unsigned int buf_len,
+					unsigned int *bytes_received)
+{
+	struct ti81xx_mgmt_area *buffer_mgmt_area = (struct ti81xx_mgmt_area *)mapped_buffer;
+
+	unsigned int offset = mgmt_area->offset + sizeof(unsigned int);
+	unsigned int *rd_idx;
+	unsigned int *wr_idx;
+	unsigned int value = 0;
+	unsigned int *used_Q = buffer_mgmt_area->Used_Q;
+	unsigned int i = block;
+	#ifdef DISPLAY
+	unsigned int j;
+	#endif
+	unsigned int align = (mgmt_area->size) % PAGE_SIZE_EP;
+	unsigned int offset_buffer = mgmt_area->size + PAGE_SIZE_EP - align;
+	struct ti81xx_mgmt_blk *mgmt_blk_ptr = NULL;
+	/*used_Q += ((mgmt_area->no_blk) + 6);*/
+
+	/* overhead part above of it must be executed only once at first time
+	* after that always start from similar place
+	* */
+
+	debug_print("block:%d mgmt_area:%p mapped_buffer:%p buf:%p buf_len:%d bytes_received:%p\n",
+		        block, mgmt_area, mapped_buffer, buf, buf_len, bytes_received);
+	print_mgmt_area(__FUNCTION__, __LINE__, (unsigned int*)mapped_buffer);
+
+	debug_print("buffer_mgmt_area:%p \n", buffer_mgmt_area);
+	debug_print("  mgmt_blk:%p \n", &buffer_mgmt_area->mgmt_blk);
+	// debug_print("  mgmt_blk:%p \n", buffer_mgmt_area->mgmt_blk);
+	mgmt_blk_ptr = &buffer_mgmt_area->mgmt_blk;
+
+	debug_print("  [0] buf_ptr:%p rd_idx:%d wr_idx:%d status:%d size:%d\n",
+					mgmt_blk_ptr->buf_ptr, mgmt_blk_ptr->rd_idx, mgmt_blk_ptr->wr_idx,
+					mgmt_blk_ptr->status, mgmt_blk_ptr->size);
+
+
+	for (i = 0; i < block; i++)
+	{
+		offset_buffer += mgmt_blk_ptr[i].size;
+	}
+	mgmt_blk_ptr = &mgmt_blk_ptr[i];
+
+	debug_print("mgmt_blk_ptr:%p offset_buffer:%d\n",
+								mgmt_blk_ptr, offset_buffer);
+
+
+
+	if (i < mgmt_area->no_blk)
+	{
+		debug_print("wr_idx  %u  wr_idx_ptr 0x%x rd_IDX %u rd_idx_ptr "
+				" 0x%x used_Q %u [5-RD/6-WR]\n",
+						mgmt_blk_ptr->wr_idx, (unsigned int)&mgmt_blk_ptr->wr_idx,
+						mgmt_blk_ptr->rd_idx, (unsigned int)&mgmt_blk_ptr->rd_idx,
+								used_Q[i]);
+
+		if ((mgmt_blk_ptr->wr_idx - mgmt_blk_ptr->rd_idx) && (used_Q[i] == RD))
+		{
+
+			debug_print("there is data in buffer %u rd_idx=%u  "
+					"wr_idx=%u\n", i, *rd_idx, *wr_idx);
+
+			*bytes_received = mgmt_blk_ptr->wr_idx - mgmt_blk_ptr->rd_idx;
+
+			#ifdef DISPLAY
+
+			for (j = 0; j < *bytes_received; j++)
+			{
+				if ((j + 1) % 30 == 0)
+					printf("\n");
+				else
+					printf("%c", *(char *)(mapped_buffer + offset_buffer + j));
+			}
+			printf("\n");
+
+			#endif
+
+
+			memcpy(buf, mapped_buffer + offset_buffer, min(*bytes_received, buf_len) );
+			debug_print("bytes recvied are %u\n",	*bytes_received);
+
+			*wr_idx = 0; /* update wr_index to be zero again */
+
+			debug_print("wr_index has been updated to zero\n");
+
+			/*remove from used -Q*/
+			ti81xx_access_used_Q(&value, i, SET, ptr);
+			debug_print("buffer remove from used Q\n");
+			/*update in free-Q*/
+			ti81xx_access_free_Q(&value, i, SET, ptr);
+			debug_print("buffer update  in  free  Q\n");
+
+			/*dedicated stuff always to be done*/
+			/* update wr_idx*/
+			/*ti81xx_access_wr_idx (&value, i, SET,ptr);*/
+			/*update rd_idx*/
+			/*ti81xx_access_rd_idx (&value, i, SET,ptr);*/
+		}
+
+		if ((*wr_idx == *rd_idx) && (used_Q[i] == WR))
+		{
+			debug_print("data has been read by peer , "
+						"recycle this %d buffer\n", i);
+			/*remove from used -Q*/
+			ti81xx_access_used_Q(&value, i, SET, ptr);
+			/*update in free Q*/
+			ti81xx_access_free_Q(&value, i, SET, ptr);
+			/*update wr_idx*/
+			ti81xx_access_wr_idx(&value, i, SET, ptr);
+			/*update rd_idx*/
+			ti81xx_access_rd_idx(&value, i, SET, ptr);
+		}
+	}
+	return 0;
+}
+
 
 int ti81xx_poll_for_data(struct ti81xx_ptrs *ptr,
 				struct ti81xx_mgmt_area *mgmt_area,

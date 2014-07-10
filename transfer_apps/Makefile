@@ -9,11 +9,11 @@ CFLAGS += -DINTERRUPT_CAPABILITY
 
 # Uncomment to turn verbose mode on
 #CFLAGS += -DDISPLAY
-#CFLAGS += -DDEBUG
+CFLAGS += -DDEBUG
 # Uncomment to perform integrity test
 #CFLAGS += -DINTEGRITY
 # Uncomment to perform throughput test
-CFLAGS += -DTHPT
+#CFLAGS += -DTHPT
 
 all: client server
 

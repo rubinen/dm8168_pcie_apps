@@ -3,7 +3,7 @@
 
 #include <pcie_common.h>
 
-int pcie_cli_init(void);
+int pcie_cli_init(int ep_id);
 int pcie_cli_open(const char *name, int flags);
 int pcie_cli_read(int fd, void *buf, int size);
 int pcie_cli_write(int fd, void *buf, int size);
