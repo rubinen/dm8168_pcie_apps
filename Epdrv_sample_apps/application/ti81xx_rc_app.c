@@ -299,12 +299,12 @@ static int parse_opts(int argc, char **argv)
 
 	opterr = 0;
 
-	while ((c = getopt (argc, argv, "ve:s:")) != -1)
+	while ((c = getopt (argc, argv, "v:e:s:")) != -1)
 	{
 		switch (c)
 		{
 			case 'v':
-				debug_test = 1;
+				debug_test = atoi(optarg);;
 				break;
 			case 'e':
 				ep_no = atoi(optarg);
@@ -344,45 +344,7 @@ static int parse_opts(int argc, char **argv)
 	return 0;
 }
 
-int print_mgmt_area(char *func, int line, unsigned int *mgmt_area)
-{
-	int no_blk = 6;
-	int j = 0;
-	printf("[%s:%d] == mgmt_area:%p \n", func, line, mgmt_area);
-	printf("[%s:%d] == uid   :%d muid   :%d \n", func, line, mgmt_area[0], mgmt_area[1]);
-	printf("[%s:%d] == no_blk:%d offs   :%d \n", func, line, mgmt_area[2], mgmt_area[3]);
-	printf("[%s:%d] == size  :%d int_cap:%d \n", func, line, mgmt_area[4], mgmt_area[5]);
 
-	printf("[%s:%d] == free_Q:", func, line);
-	for (j = 0; j < no_blk; j++)
-	{
-		printf("%d ", mgmt_area[6 + j]);
-	}
-	printf("\n");
-	printf("[%s:%d] == used_Q:", func, line);
-	for (j = 0; j < no_blk; j++)
-	{
-		printf("%d ", mgmt_area[6 + no_blk + j]);
-	}
-	printf("\n");
-
-
-	for (j = 0; j < no_blk; j++)
-	{
-		// debug_print("mgmt_area blk[j] %p mgmt_blk_ptr:%p (%d)\n", mgmt_area, pntr, pntr - mgmt_area);
-		// printf("== mgmt_area:%p blk[%d] mgmt_area[status]:%p (%d) mgmt_area[choice]:%p (%d)\n",
-		//          mgmt_area,
-		//          j,
-		//          &mgmt_area[6 + 2 * no_blk + j * 5 + 3], &mgmt_area[6 + 2 * no_blk + j * 5 + 3] - mgmt_area,
-		//          &mgmt_area[6 + no_blk + j], &mgmt_area[6 + no_blk + j] - mgmt_area);
-		printf("[%s:%d] == blk[%d] status:%d  choice:%d \n",
-							func, line,
-		         j,
-		         j,
-		         mgmt_area[6 + 2 * no_blk + j * 5 + 3],
-		         mgmt_area[6 + no_blk + j]);
-	}
-}
 
 void *ep_process(void *arg)
 {
@@ -396,6 +358,7 @@ void *ep_process(void *arg)
 	unsigned int *id_alloc;
 	int bar_chosen = 2;
 	struct test_case test_summary[19];
+	static int initialized = 0;
 
 
 	pthread_attr_init(&attr_t1);
@@ -419,6 +382,16 @@ void *ep_process(void *arg)
 		err_print("MMAP of dedicated memory fail\n");
 		return;
 	}
+
+	if (!initialized)
+	{
+		memset((ep->mapped_buffer + GENERAL_INFO_SIZE), 0x0,
+				FREE_Q_SIZE(MAX_BLOCKS) +
+				USED_Q_SIZE(MAX_BLOCKS) +
+				MGMT_BLKS_SIZE(MAX_BLOCKS));
+		initialized = 1;
+	}
+
 	id_alloc = (unsigned int *) ep->mapped_buffer;
 
 	ep->mapped_pci = mmap(0, ep->sys_info->res_value[bar_chosen + 1][1],
@@ -458,6 +431,7 @@ void *ep_process(void *arg)
 
 	#endif
 
+	print_mgmt_area(__FUNCTION__, __LINE__, (unsigned int *)ep->mapped_buffer);
 
 	debug_print("initialization of management mgmt_area complete\n");
 	ti81xx_calculate_ptr(ep->mgmt_area, ep->mapped_buffer, &ep->ptr);
@@ -517,6 +491,8 @@ void *ep_process(void *arg)
 		return;
 	}
 
+	print_mgmt_area(__FUNCTION__, __LINE__, (unsigned int *)ep->mapped_pci);
+
 	debug_print("offset of buffer is %x\n", ep->wr_buf.bufd.off_st);
 	#endif
 
@@ -531,6 +507,7 @@ void *ep_process(void *arg)
 							"by remote peer\n");
 		return;
 	}
+	print_mgmt_area(__FUNCTION__, __LINE__, (unsigned int *)ep->mapped_buffer);
 
 	/* populate source buffer to be read by remote peer */
 	memset(ep->mapped_buffer + (ep->rd_buf.bufd).off_st, 97, ep->rd_buf.size_buf);
@@ -1112,7 +1089,7 @@ void *wait_for_int(void * arg)
 			#endif
 		} else
 			debug_print("no notification from remote peer -- "
-							"timed out byte_recv");
+							"timed out byte_recv\n");
 	}
 	#if defined(INTEGRITY) || defined(THPT)
 	debug_print("byte recv from EP is %llu\n", byte_recv);

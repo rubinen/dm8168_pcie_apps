@@ -42,6 +42,68 @@
 #include "ti81xx_mgmt_lib.h"
 #include "debug_msg.h"
 
+#define APP_NAME     "ti81xx_mgmt_lib"
+
+#define dbg(level, debug, fmt, arg...)                \
+  do {                                                \
+    if (debug >= (level)) {                           \
+      printf("\n"APP_NAME" [%d] %s():%d ", getpid(), __FUNCTION__, __LINE__); \
+      printf(fmt , ## arg); \
+    } \
+  } while (0)
+
+#define dbgi(fmt, arg...)                \
+  do {                                                \
+      printf(APP_NAME" [%d] %s():%d ", getpid(), __FUNCTION__, __LINE__); \
+      printf(fmt , ## arg); \
+  } while (0)
+
+static int debug = 1;
+
+
+#define min(x, y)  (((x) < (y)) ? (x) : (y))
+
+int print_mgmt_area(char *func, int line, unsigned int *mgmt_area)
+{
+	int no_blk = 6;
+	int j = 0;
+	printf("[%s:%d] == mgmt_area:%p \n", func, line, mgmt_area);
+	printf("[%s:%d] == uid   :%d muid   :%d \n", func, line, mgmt_area[0], mgmt_area[1]);
+	printf("[%s:%d] == no_blk:%d offs   :%d \n", func, line, mgmt_area[2], mgmt_area[3]);
+	printf("[%s:%d] == size  :%d int_cap:%d \n", func, line, mgmt_area[4], mgmt_area[5]);
+
+	printf("[%s:%d] == free_Q:", func, line);
+	for (j = 0; j < no_blk; j++)
+	{
+		printf("%d ", mgmt_area[6 + j]);
+	}
+	printf("\n");
+	printf("[%s:%d] == used_Q:", func, line);
+	for (j = 0; j < no_blk; j++)
+	{
+		printf("%d ", mgmt_area[6 + no_blk + j]);
+	}
+	printf("\n");
+
+
+	for (j = 0; j < no_blk; j++)
+	{
+		// debug_print("mgmt_area blk[j] %p mgmt_blk_ptr:%p (%d)\n", mgmt_area, pntr, pntr - mgmt_area);
+		// printf("== mgmt_area:%p blk[%d] mgmt_area[status]:%p (%d) mgmt_area[choice]:%p (%d)\n",
+		//          mgmt_area,
+		//          j,
+		//          &mgmt_area[6 + 2 * no_blk + j * 5 + 3], &mgmt_area[6 + 2 * no_blk + j * 5 + 3] - mgmt_area,
+		//          &mgmt_area[6 + no_blk + j], &mgmt_area[6 + no_blk + j] - mgmt_area);
+		printf("[%s:%d] == blk[%d] status:%d  choice:%d \n",
+							func, line,
+		         j,
+		         j,
+		         mgmt_area[6 + 2 * no_blk + j * 5 + 3],
+		         mgmt_area[6 + no_blk + j]);
+	}
+}
+
+
 
 /**
  * ti81xx_set_mgmt_area() -- This function initialize management area
@@ -535,6 +597,8 @@ int ti81xx_poll_for_data(struct ti81xx_ptrs *ptr,
 	unsigned int offset_buffer = mgmt_area->size + PAGE_SIZE_EP - align;
 	used_Q += ((mgmt_area->no_blk) + 6);
 
+	vdebug_print("mgmt_area:%p mgmt_area->no_blk:%d\n", mgmt_area, mgmt_area->no_blk);
+
 	/* overhead part above of it must be executed only once at first time
 	* after that always start from similar place
 	* */
@@ -560,6 +624,7 @@ int ti81xx_poll_for_data(struct ti81xx_ptrs *ptr,
 
 			#ifdef DISPLAY
 
+			debug_print("block:%d Data: \n", i);
 			for (j = 0; j < (*wr_idx - *rd_idx); j++) {
 				if ((j + 1) % 30 == 0)
 					printf("\n");

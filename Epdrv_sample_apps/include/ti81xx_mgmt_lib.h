@@ -157,6 +157,7 @@ struct dedicated_buf {
 /*
  * function declaration
  */
+int print_mgmt_area(char *func, int line, unsigned int *mgmt_area);
 
 int ti81xx_set_mgmt_area(struct ti81xx_mgmt_area *mgmt_area,
 					unsigned int *mapped_buffer);

@@ -302,6 +302,7 @@ void *send_to_dedicated_buf(void *arg)
 			*((tx->bufd).wr_ptr) = ret;
 
 			ioctl(fd, TI81XX_SEND_MSI, 0);
+			// printf("[%s:%d] TI81XX_SEND_MSI..\n", __FUNCTION__, __LINE__);
 			debug_print("data sent %d times, bytes sent in this "
 						"chunk are %d\n", count+1, ret);
 		}
@@ -314,6 +315,7 @@ void *send_to_dedicated_buf(void *arg)
 			*/
 			*((tx->bufd).wr_ptr) = tx->size_buf;
 			ioctl(fd, TI81XX_SEND_MSI, 0);
+			// printf("[%s:%d] TI81XX_SEND_MSI..\n", __FUNCTION__, __LINE__);
 			debug_print("data sent %d times, bytes sent in this "
 					"chunk are %d\n",
 						count + 1, tx->size_buf);
@@ -347,6 +349,7 @@ void *send_to_dedicated_buf(void *arg)
 		}
 		*((tx->bufd).wr_ptr) = ret;
 		ioctl(fd, TI81XX_SEND_MSI, 0);
+		// printf("[%s:%d] TI81XX_SEND_MSI..\n", __FUNCTION__, __LINE__);
 #endif
 	}
 	ioctl(fd, TI81XX_CUR_TIME, &fin_time1);
@@ -411,6 +414,7 @@ void *read_from_dedicated_buf(void *arg)
 						"chunk are %d\n", count+1, ret);
 			*((rx->bufd).wr_ptr) = 0;
 			ioctl(fd, TI81XX_SEND_MSI, 0);
+			// printf("[%s:%d] TI81XX_SEND_MSI..\n", __FUNCTION__, __LINE__);
 		}
 
 		if (choice == CPU) {
@@ -607,12 +611,12 @@ static int parse_opts(int argc, char **argv)
 
 	opterr = 0;
 
-	while ((c = getopt (argc, argv, "ve:b:s:")) != -1)
+	while ((c = getopt (argc, argv, "v:e:b:s:")) != -1)
 	{
 		switch (c)
 		{
 			case 'v':
-				debug_test = 1;
+				debug_test = atoi(optarg);
 				break;
 			case 'e':
 				ep_id = atoi(optarg);
@@ -825,6 +829,7 @@ int main(int argc, char **argv)
 
 	}
 
+	memset(mapped_buffer, 0x0, SIZE_AREA);
 	test = (unsigned int *)mapped_buffer;
 
 	pcie_regs.offset = GPR0;
@@ -951,6 +956,7 @@ int main(int argc, char **argv)
 	dedicate_buffer((unsigned int *)mapped_buffer, 1,
 						mgmt_area.no_blk, 0, RD);
 #endif
+	print_mgmt_area(__FUNCTION__, __LINE__, (unsigned int *)mapped_buffer);
 
 
 	test[0] = 1; /*set lock to be accessed by RC*/
@@ -1061,6 +1067,7 @@ int main(int argc, char **argv)
 		err_print("no dedicated buffer for RX on remote peer\n");
 		goto FREE_BUFFER;
 	}
+	print_mgmt_area(__FUNCTION__, __LINE__, (unsigned int *)mapped_pci);
 	debug_print("offset of buffer dedicated for RX on "
 				"remote peer is %X\n", rd_buf.bufd.off_st);
 
@@ -1071,7 +1078,7 @@ int main(int argc, char **argv)
 		err_print("no dedicated buffer for TX on remote peer\n");
 		goto FREE_BUFFER;
 	}
-
+	print_mgmt_area(__FUNCTION__, __LINE__, (unsigned int *)mapped_pci);
 	debug_print("offset of buffer dedicated for TX on remote "
 					"peer is  %X\n", wr_buf.bufd.off_st);
 
@@ -1363,8 +1370,11 @@ read_from_dedicated_buf_func(arg);
 								EDMA, fd_dma);
 			release_mgmt_area((u32 *)mapped_pci);
 			if (intr_cap == 1)
+			{
 				ioctl(*(unsigned int *)arg,
 							TI81XX_SEND_MSI, 0);
+				// printf("[%s:%d] TI81XX_SEND_MSI..\n", __FUNCTION__, __LINE__);
+			}
 
 			counter--;
 		}
@@ -1409,10 +1419,16 @@ void *send_data(void *arg)
 		sleep(10);
 		send_data_by_cpu();
 		if (intr_cap == 1)
+		{
 			ioctl(*(unsigned int *)arg, TI81XX_SEND_MSI, 0);
+			printf("[%s:%d] send by CPU!! MSI\n", __FUNCTION__, __LINE__);
+		}
+		sleep(3);
 		send_data_by_dma();
-		if (intr_cap == 1)
+		if (intr_cap == 1){
 			ioctl(*(unsigned int *)arg, TI81XX_SEND_MSI, 0);
+			printf("[%s:%d] send by DMA!! MSI\n", __FUNCTION__, __LINE__);
+		}
 		debug_print("send data %d times\n", try);
 		try++;
 	}
