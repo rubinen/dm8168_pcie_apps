@@ -45,24 +45,24 @@
 #include <drivers/char/ti81xx_pcie_epdrv.h>
 #include <drivers/char/ti81xx_edma.h>
 
-#define SET		1
-#define GET		0
-#define USED		1
-#define INPROCESS	1
+#define SET   1
+#define GET   0
+#define USED    1
+#define INPROCESS 1
 
 
 
 
-#define INT			1
-#define POLL			2
-#define MAX_BLOCKS		6
-#define GENERAL_INFO_SIZE	(sizeof(unsigned int) * 6)
-#define FREE_Q_SIZE(no_blk)	(sizeof(unsigned int) * no_blk)
-#define USED_Q_SIZE(no_blk)	(sizeof(unsigned int) * no_blk)
-#define MGMT_BLKS_SIZE(no_blk)	(sizeof(struct ti81xx_mgmt_blk) * no_blk)
-#define PAGE_SIZE_EP		4096
-#define RD	5
-#define WR	6
+#define INT     1
+#define POLL      2
+#define MAX_BLOCKS    6
+#define GENERAL_INFO_SIZE (sizeof(unsigned int) * 6)
+#define FREE_Q_SIZE(no_blk) (sizeof(unsigned int) * no_blk)
+#define USED_Q_SIZE(no_blk) (sizeof(unsigned int) * no_blk)
+#define MGMT_BLKS_SIZE(no_blk)  (sizeof(struct ti81xx_mgmt_blk) * no_blk)
+#define PAGE_SIZE_EP    4096
+#define RD  5
+#define WR  6
 #include <stdio.h>
 
 /**
@@ -83,11 +83,11 @@
  */
 
 struct ti81xx_mgmt_blk {
-	unsigned int buf_ptr;
-	unsigned int rd_idx;
-	unsigned int wr_idx;
-	unsigned int status;
-	unsigned int size;
+  unsigned int buf_ptr;
+  unsigned int rd_idx;
+  unsigned int wr_idx;
+  unsigned int status;
+  unsigned int size;
 };
 
 /**
@@ -114,15 +114,15 @@ struct ti81xx_mgmt_blk {
 
 
 struct ti81xx_mgmt_area {
-	unsigned int unique_id;
-	unsigned int my_unique_id;
-	unsigned int no_blk;
-	unsigned int offset;
-	unsigned int size;
-	unsigned int int_cap;
-	unsigned int *free_Q;
-	unsigned int *Used_Q;
-	struct ti81xx_mgmt_blk *mgmt_blk;
+  unsigned int unique_id;
+  unsigned int my_unique_id;
+  unsigned int no_blk;
+  unsigned int offset;
+  unsigned int size;
+  unsigned int int_cap;
+  unsigned int *free_Q;
+  unsigned int *Used_Q;
+  struct ti81xx_mgmt_blk *mgmt_blk;
 };
 
 
@@ -139,18 +139,18 @@ struct ti81xx_mgmt_area {
  */
 
 struct ti81xx_ptrs {
-	unsigned int *offset_free;
-	unsigned int *offset_used;
-	unsigned int *offset_status;
-	unsigned int *offset_wr_idx;
-	unsigned int *offset_rd_idx;
-	unsigned int *offset_size;
+  unsigned int *offset_free;
+  unsigned int *offset_used;
+  unsigned int *offset_status;
+  unsigned int *offset_wr_idx;
+  unsigned int *offset_rd_idx;
+  unsigned int *offset_size;
 };
 
 struct dedicated_buf {
-	unsigned int *wr_ptr;
-	unsigned int *rd_ptr;
-	unsigned int off_st;
+  unsigned int *wr_ptr;
+  unsigned int *rd_ptr;
+  unsigned int off_st;
 };
 
 
@@ -160,31 +160,31 @@ struct dedicated_buf {
 int print_mgmt_area(char *func, int line, unsigned int *mgmt_area);
 
 int ti81xx_set_mgmt_area(struct ti81xx_mgmt_area *mgmt_area,
-					unsigned int *mapped_buffer);
+          unsigned int *mapped_buffer);
 int ti81xx_get_mgmt_area(struct ti81xx_mgmt_area *mgmt_area,
-					unsigned int *mapped_buffer);
+          unsigned int *mapped_buffer);
 int ti81xx_prepare_mgmt_info(struct ti81xx_mgmt_area *mgmt_area, unsigned int
-		size_buffer);
+    size_buffer);
 int ti81xx_calculate_ptr(struct ti81xx_mgmt_area *mgmt_area,
-			char *mapped_buffer, struct ti81xx_ptrs *ptr);
+      char *mapped_buffer, struct ti81xx_ptrs *ptr);
 int ti81xx_access_free_Q(unsigned int *value, unsigned int blk_no,
-				unsigned int mode, struct ti81xx_ptrs *ptr);
+        unsigned int mode, struct ti81xx_ptrs *ptr);
 int ti81xx_access_used_Q(unsigned int *value, unsigned int blk_no,
-				unsigned int mode, struct ti81xx_ptrs *ptr);
+        unsigned int mode, struct ti81xx_ptrs *ptr);
 int ti81xx_access_status(unsigned int *value, unsigned int blk_no,
-				unsigned int mode, struct ti81xx_ptrs *ptr);
+        unsigned int mode, struct ti81xx_ptrs *ptr);
 int ti81xx_access_wr_idx(unsigned int *value, unsigned int blk_no,
-				unsigned int mode, struct ti81xx_ptrs *ptr);
+        unsigned int mode, struct ti81xx_ptrs *ptr);
 int ti81xx_access_rd_idx(unsigned int *value, unsigned int blk_no,
-				unsigned int mode, struct ti81xx_ptrs *ptr);
+        unsigned int mode, struct ti81xx_ptrs *ptr);
 int ti81xx_poll_for_data(struct ti81xx_ptrs *ptr,
-				struct ti81xx_mgmt_area *mgmt_area,
-					char *mapped_buffer, FILE *fp,
-						unsigned long long *byte_recv);
+        struct ti81xx_mgmt_area *mgmt_area,
+          char *mapped_buffer, FILE *fp,
+            unsigned long long *byte_recv);
 int dedicate_buffer(unsigned int *mgmt_area, unsigned int muid,
-						unsigned int no_blk,
-							unsigned int buf_no,
-							unsigned int choice);
+            unsigned int no_blk,
+              unsigned int buf_no,
+              unsigned int choice);
 #ifdef INTEGRITY
 int dump_data_in_file(char *buf, unsigned int buf_len, FILE *fp);
 int set_data_to_buffer(char *buf, unsigned int buf_len, FILE *fp);

@@ -46,8 +46,8 @@ extern int debug_test;
 
 
 #define debug_print(fmt, ...) \
-	do { if (DEBUG_TEST) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
-				__LINE__, __func__, ##__VA_ARGS__); } while (0)
+  do { if (DEBUG_TEST) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
+        __LINE__, __func__, ##__VA_ARGS__); } while (0)
 
 #define vdebug_print(fmt, ...) \
   do { if (DEBUG_TEST > 1) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
@@ -62,7 +62,7 @@ extern int debug_test;
  */
 
 #define err_print(fmt, ...) \
-	do { fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
-				__LINE__, __func__, ##__VA_ARGS__); } while (0)
+  do { fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
+        __LINE__, __func__, ##__VA_ARGS__); } while (0)
 
 #endif

@@ -57,21 +57,21 @@ extern unsigned int status;
 
 int ti81xx_enable_in_translation(int fd)
 {
-	struct ti81xx_pciess_regs regs;
-	regs.offset = CMD_STATUS;
-	regs.mode = GET_REGS;
-	if (ioctl(fd, TI81XX_ACCESS_REGS, &regs) < 0) {
-		err_print("GET_REGS mode ioctl failed\n");
-		return -1;
-	}
-	regs.value = regs.value | ENABLE_IN;
-	regs.mode = SET_REGS;
-	if (ioctl(fd, TI81XX_ACCESS_REGS, &regs) < 0) {
-		err_print("SET_REGS mode ioctl failed\n");
-		return -1;
-	}
-	debug_print("inbound translation enabled\n");
-	return 0;
+  struct ti81xx_pciess_regs regs;
+  regs.offset = CMD_STATUS;
+  regs.mode = GET_REGS;
+  if (ioctl(fd, TI81XX_ACCESS_REGS, &regs) < 0) {
+    err_print("GET_REGS mode ioctl failed\n");
+    return -1;
+  }
+  regs.value = regs.value | ENABLE_IN;
+  regs.mode = SET_REGS;
+  if (ioctl(fd, TI81XX_ACCESS_REGS, &regs) < 0) {
+    err_print("SET_REGS mode ioctl failed\n");
+    return -1;
+  }
+  debug_print("inbound translation enabled\n");
+  return 0;
 }
 
 /**
@@ -83,21 +83,21 @@ int ti81xx_enable_in_translation(int fd)
 
 int ti81xx_enable_out_translation(int fd)
 {
-	struct ti81xx_pciess_regs regs;
-	regs.offset = CMD_STATUS;
-	regs.mode = GET_REGS;
-	if (ioctl(fd, TI81XX_ACCESS_REGS, &regs) < 0) {
-		err_print("GET_REGS mode ioctl failed\n");
-		return -1;
-	}
-	regs.value = regs.value | ENABLE_OUT;
-	regs.mode = SET_REGS;
-	if (ioctl(fd, TI81XX_ACCESS_REGS, &regs) < 0) {
-		err_print("SET_REGS mode ioctl failed\n");
-		return -1;
-	}
-	debug_print("outbound translation enabled\n");
-	return 0;
+  struct ti81xx_pciess_regs regs;
+  regs.offset = CMD_STATUS;
+  regs.mode = GET_REGS;
+  if (ioctl(fd, TI81XX_ACCESS_REGS, &regs) < 0) {
+    err_print("GET_REGS mode ioctl failed\n");
+    return -1;
+  }
+  regs.value = regs.value | ENABLE_OUT;
+  regs.mode = SET_REGS;
+  if (ioctl(fd, TI81XX_ACCESS_REGS, &regs) < 0) {
+    err_print("SET_REGS mode ioctl failed\n");
+    return -1;
+  }
+  debug_print("outbound translation enabled\n");
+  return 0;
 }
 
 
@@ -110,21 +110,21 @@ int ti81xx_enable_out_translation(int fd)
 
 int ti81xx_enable_bus_master(int fd)
 {
-	struct ti81xx_pciess_regs regs;
-	regs.offset = LOCAL_CONFIG_OFFSET + STATUS_COMMAND;
-	regs.mode = GET_REGS;
-	if (ioctl(fd, TI81XX_ACCESS_REGS, &regs) < 0) {
-		err_print("GET_REGS mode ioctl failed\n");
-		return -1;
-	}
-	regs.value = regs.value | ENABLE_MASTER;
-	regs.mode = SET_REGS;
-	if (ioctl(fd, TI81XX_ACCESS_REGS, &regs) < 0) {
-		err_print("SET_REGS mode ioctl failed\n");
-		return -1;
-	}
-	debug_print("bus master enable\n");
-	return 0;
+  struct ti81xx_pciess_regs regs;
+  regs.offset = LOCAL_CONFIG_OFFSET + STATUS_COMMAND;
+  regs.mode = GET_REGS;
+  if (ioctl(fd, TI81XX_ACCESS_REGS, &regs) < 0) {
+    err_print("GET_REGS mode ioctl failed\n");
+    return -1;
+  }
+  regs.value = regs.value | ENABLE_MASTER;
+  regs.mode = SET_REGS;
+  if (ioctl(fd, TI81XX_ACCESS_REGS, &regs) < 0) {
+    err_print("SET_REGS mode ioctl failed\n");
+    return -1;
+  }
+  debug_print("bus master enable\n");
+  return 0;
 }
 
 
@@ -139,45 +139,45 @@ int ti81xx_enable_bus_master(int fd)
 
 int ti81xx_set_inbound(struct ti81xx_inb_window *in , int fd)
 {
-	debug_print("setting up inbound window\n");
-	if (ioctl(fd, TI81XX_SET_INBOUND, in) < 0) {
-		err_print("setting in-bound window failed\n");
-		return -1;
-	}
-	return 0;
+  debug_print("setting up inbound window\n");
+  if (ioctl(fd, TI81XX_SET_INBOUND, in) < 0) {
+    err_print("setting in-bound window failed\n");
+    return -1;
+  }
+  return 0;
 }
 
 /**
  * ti81xx_set_outbound_region()-- setup outbound translation region
  * @ob: pointer to struct ti81xx_outb_region, that contain info related
- *	to outbound configuration
+ *  to outbound configuration
  * @fd: file descriptor
  *
  */
 
 int ti81xx_set_outbound_region(struct ti81xx_outb_region *ob , int fd)
 {
-	int ret;
-	ret = ioctl(fd, TI81XX_SET_OUTBOUND, ob);
-	if (ret == ENMEM)
-		debug_print("ENMEM -- no memory available\n");
-	else if (ret == EFAIL)
-		debug_print("EFAIL-- some error occurs\n");
-	else if (ret == EINOB)
-		debug_print("EINOB -- increase size to get this"
-						" request completed\n");
-	else if (ret == 0) {
-		debug_print("outbound mapping request accepted\n");
-		ioctl(fd, TI81XX_GET_OUTBOUND_STATUS, &status);/*just for debug purpose*/
-		debug_print("status of outbound regions is 0X%x\n", status);
-	}
-	return ret;
+  int ret;
+  ret = ioctl(fd, TI81XX_SET_OUTBOUND, ob);
+  if (ret == ENMEM)
+    debug_print("ENMEM -- no memory available\n");
+  else if (ret == EFAIL)
+    debug_print("EFAIL-- some error occurs\n");
+  else if (ret == EINOB)
+    debug_print("EINOB -- increase size to get this"
+            " request completed\n");
+  else if (ret == 0) {
+    debug_print("outbound mapping request accepted\n");
+    ioctl(fd, TI81XX_GET_OUTBOUND_STATUS, &status);/*just for debug purpose*/
+    debug_print("status of outbound regions is 0X%x\n", status);
+  }
+  return ret;
 }
 
 /**
  * ti81xx_clear_outbound_mapping() -- clear outbound mapping
  * @ob: pointer to struct ti81xx_outb_region, that contain info related to
- *	outbound configuration.
+ *  outbound configuration.
  * that have to be released.
  * @fd: file descriptor
  *
@@ -186,13 +186,13 @@ int ti81xx_set_outbound_region(struct ti81xx_outb_region *ob , int fd)
 
 int ti81xx_clear_outbound_mapping(struct ti81xx_outb_region *ob, int fd)
 {
-	int ret = 0;
-	printf("enter details  for clear mapping\n1> hi 32-bit address:"
-						"\n2> low 32-bit addrees:\n");
-	scanf("%u %u", &ob->ob_offset_hi, &ob->ob_offset_idx);
-	ret = ioctl(fd, TI81XX_CLR_OUTBOUND_MAP, ob);
-	/*put retuirn value check on ioctls*/
-	ret = ioctl(fd, TI81XX_GET_OUTBOUND_STATUS, &status); /*just for debug purpose*/
-	debug_print("status of outbound regions is:  0x%x\n", status);
-	return ret;
+  int ret = 0;
+  printf("enter details  for clear mapping\n1> hi 32-bit address:"
+            "\n2> low 32-bit addrees:\n");
+  scanf("%u %u", &ob->ob_offset_hi, &ob->ob_offset_idx);
+  ret = ioctl(fd, TI81XX_CLR_OUTBOUND_MAP, ob);
+  /*put retuirn value check on ioctls*/
+  ret = ioctl(fd, TI81XX_GET_OUTBOUND_STATUS, &status); /*just for debug purpose*/
+  debug_print("status of outbound regions is:  0x%x\n", status);
+  return ret;
 }

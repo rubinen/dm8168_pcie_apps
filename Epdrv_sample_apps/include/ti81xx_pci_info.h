@@ -56,8 +56,8 @@
 #define DEVICE_ID 0xb800
 
 struct pci_sys_info {
-	unsigned int res_value[7][2];
-	struct pci_sys_info *next;
+  unsigned int res_value[7][2];
+  struct pci_sys_info *next;
 };
 
 /*
@@ -65,15 +65,15 @@ struct pci_sys_info {
  */
 
 int add_node_in_list(struct pci_sys_info *pci_info,
-					struct pci_sys_info **start);
+          struct pci_sys_info **start);
 int free_list(struct pci_sys_info *start);
 int add_resource_in_list(FILE *fr, struct pci_sys_info **start);
 int fetch_my_unique_id(unsigned int *mgmt_area, struct pci_sys_info *node);
 int print_list(struct pci_sys_info *start);
 int dump_info_on_ep(struct pci_sys_info *start, unsigned int *mgmt_area,
-				unsigned int eps, unsigned int startaddr);
+        unsigned int eps, unsigned int startaddr);
 int get_devices(struct pci_sys_info **start);
 int propagate_system_info(struct pci_sys_info *start,
-				int fd, int eps, unsigned int startaddr);
+        int fd, int eps, unsigned int startaddr);
 
 #endif

@@ -39,31 +39,31 @@
 #define __TRANS_FUNC__
 
 /* direction of EDMA transfers */
-#define EP_OUT			0
-#define EP_IN			1
+#define EP_OUT      0
+#define EP_IN     1
 
 /* transfers mode */
-#define EDMA			1
-#define CPU			2
+#define EDMA      1
+#define CPU     2
 
 extern int access_mgmt_area(unsigned int *mgmt_area, unsigned int unique_id);
 extern inline void release_mgmt_area(unsigned int *mgmt_area);
 extern int get_free_buffer(unsigned int *mgmt_area);
 extern unsigned int offset_to_buffer(unsigned int *mgmt_area, int i);
 extern int send_to_remote_buf_by_cpu(unsigned int *mgmt_area,
-					unsigned int off_st, int i);
+          unsigned int off_st, int i);
 extern int put_data_in_local_buffer(unsigned int *mgmt_area,
-					unsigned int off_st, int i);
+          unsigned int off_st, int i);
 extern int read_from_remote_buf_by_cpu(char *mgmt_area, unsigned int off_st);
 extern int  process_remote_buffer_for_data(unsigned int *mgmt_area,
-					int choice, int fd_dma);
+          int choice, int fd_dma);
 extern int read_from_remote_buf_by_dma(unsigned int outb_address,
-					unsigned int off_st, int fd_dma);
+          unsigned int off_st, int fd_dma);
 extern int send_to_remote_buf_by_dma(unsigned int *mgmt_area,
-						unsigned int outb_address,
-						unsigned int off_st,
-						int i, int fd_dma);
+            unsigned int outb_address,
+            unsigned int off_st,
+            int i, int fd_dma);
 extern int find_dedicated_buffer(unsigned int *mgmt_area, unsigned int muid,
-						struct dedicated_buf *dbuf,
-							unsigned int choice);
+            struct dedicated_buf *dbuf,
+              unsigned int choice);
 #endif
